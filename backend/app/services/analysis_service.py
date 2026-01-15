@@ -217,11 +217,16 @@ class AnalysisService:
         content: bytes,
         filename: str
     ) -> None:
-        """Validate uploaded image."""
+        """
+        Validate uploaded image with minimal memory usage.
+        
+        Uses PIL's lazy loading - only reads headers, not full pixel data.
+        """
         from pathlib import Path
         
         # Check file size
-        if len(content) > MAX_IMAGE_SIZE:
+        content_size = len(content)
+        if content_size > MAX_IMAGE_SIZE:
             raise ValidationError(
                 message="Image too large",
                 details={"max_size_mb": MAX_IMAGE_SIZE / (1024 * 1024)}
@@ -235,9 +240,11 @@ class AnalysisService:
                 details={"allowed": list(ALLOWED_EXTENSIONS)}
             )
         
-        # Validate it's a real image
+        # Validate it's a real image using lazy loading
+        # PIL only reads headers until you call load() or access pixel data
         try:
             img = Image.open(io.BytesIO(content))
+            # verify() reads minimal data to validate image header
             img.verify()
         except (IOError, OSError) as e:
             raise ValidationError(
@@ -251,9 +258,16 @@ class AnalysisService:
             )
     
     def _get_image_dimensions(self, content: bytes) -> tuple[int, int]:
-        """Get image width and height."""
+        """
+        Get image width and height with minimal memory usage.
+        
+        PIL's Image.open() is lazy - it only reads the header to get 
+        dimensions without loading the full image into memory.
+        """
         try:
-            img = Image.open(io.BytesIO(content))
-            return img.size
+            # This only reads the image header, not the full pixel data
+            with Image.open(io.BytesIO(content)) as img:
+                return img.size
         except Exception:
             return (0, 0)
+

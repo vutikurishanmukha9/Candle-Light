@@ -92,11 +92,23 @@ class Settings(BaseSettings):
     storage_type: Literal["local", "s3"] = "local"
     upload_dir: str = "./uploads"
     
-    # S3 Configuration (for future use)
+    # S3 Configuration (for production cloud deployments)
+    # Set STORAGE_TYPE=s3 to enable S3 storage
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
-    aws_s3_bucket: str = ""
-    aws_region: str = "us-east-1"
+    s3_bucket_name: str = ""  # e.g., "candle-light-uploads"
+    s3_region: str = "us-east-1"
+    s3_endpoint_url: str = ""  # For S3-compatible services (MinIO, DigitalOcean Spaces)
+    
+    @property
+    def s3_enabled(self) -> bool:
+        """Check if S3 storage is properly configured."""
+        return (
+            self.storage_type == "s3" and 
+            bool(self.s3_bucket_name) and
+            bool(self.aws_access_key_id)
+        )
+
     
     # ===================
     # Server
