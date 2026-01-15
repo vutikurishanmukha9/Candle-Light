@@ -5,10 +5,12 @@ Uses pydantic-settings for environment variable management.
 Supports SQLite for local development and PostgreSQL for production.
 """
 
+import secrets
+import warnings
 from functools import lru_cache
-from typing import List, Literal
+from typing import List, Literal, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 import json
 
 
@@ -40,10 +42,24 @@ class Settings(BaseSettings):
     # ===================
     # Authentication
     # ===================
-    jwt_secret_key: str = "dev-secret-key-change-in-production"
+    # JWT secret - MUST be set in production via environment variable
+    jwt_secret_key: str = ""
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
+    
+    @field_validator("jwt_secret_key", mode="before")
+    @classmethod
+    def generate_secret_if_empty(cls, v):
+        """Generate a secure secret in development if not provided."""
+        if not v:
+            warnings.warn(
+                "JWT_SECRET_KEY not set! Using auto-generated key. "
+                "Set JWT_SECRET_KEY environment variable in production.",
+                UserWarning
+            )
+            return secrets.token_urlsafe(32)
+        return v
     
     # Google OAuth
     google_client_id: str = ""
@@ -59,7 +75,7 @@ class Settings(BaseSettings):
     # ===================
     openai_api_key: str = ""
     google_ai_api_key: str = ""
-    ai_provider: Literal["openai", "gemini", "demo"] = "demo"
+    ai_provider: Literal["openai", "gemini", "inhouse", "demo"] = "demo"
     
     @property
     def ai_enabled(self) -> bool:
@@ -87,7 +103,13 @@ class Settings(BaseSettings):
     # ===================
     host: str = "0.0.0.0"
     port: int = 8000
-    debug: bool = True
+    debug: bool = False  # SECURITY: Default to False for production safety
+    
+    # ===================
+    # Rate Limiting
+    # ===================
+    rate_limit_per_minute: int = 60
+    rate_limit_burst: int = 10
     
     # ===================
     # CORS

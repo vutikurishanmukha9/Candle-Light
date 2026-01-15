@@ -14,6 +14,7 @@ import os
 from app.config import settings
 from app.database import init_db, close_db
 from app.core.exceptions import AppException
+from app.core.rate_limit import RateLimitMiddleware
 from app.routers import (
     auth_router,
     analysis_router,
@@ -69,6 +70,13 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Add rate limiting middleware
+app.add_middleware(
+    RateLimitMiddleware,
+    rate_per_minute=settings.rate_limit_per_minute,
+    burst=settings.rate_limit_burst,
 )
 
 

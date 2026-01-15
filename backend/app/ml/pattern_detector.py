@@ -13,6 +13,7 @@ Features:
 - Detailed reasoning generation
 """
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Tuple
@@ -21,12 +22,10 @@ from enum import Enum
 from .patterns import (
     CandlestickPattern, PatternType, PatternCategory,
     ALL_PATTERNS, get_pattern_by_name,
-    DOJI, HAMMER, HANGING_MAN, INVERTED_HAMMER, SHOOTING_STAR,
-    MARUBOZU, SPINNING_TOP,
-    BULLISH_ENGULFING, BEARISH_ENGULFING, BULLISH_HARAMI, BEARISH_HARAMI,
-    TWEEZER_TOP, TWEEZER_BOTTOM, PIERCING_LINE, DARK_CLOUD_COVER,
+    DOJI, DRAGONFLY_DOJI, GRAVESTONE_DOJI, HAMMER, SHOOTING_STAR, MARUBOZU,
+    BULLISH_ENGULFING, BEARISH_ENGULFING, PIERCING_LINE, DARK_CLOUD_COVER,
     MORNING_STAR, EVENING_STAR, THREE_WHITE_SOLDIERS, THREE_BLACK_CROWS,
-    DOUBLE_TOP, DOUBLE_BOTTOM, HEAD_AND_SHOULDERS, RISING_WEDGE, FALLING_WEDGE
+    DOUBLE_TOP, DOUBLE_BOTTOM, RISING_WEDGE, FALLING_WEDGE
 )
 from .image_processor import ImageProcessor, ChartAnalysis, Candlestick
 
@@ -658,3 +657,25 @@ def analyze_chart_image(image_data: bytes) -> AnalysisResult:
         AnalysisResult with detected patterns and analysis
     """
     return pattern_detector.analyze_image(image_data)
+
+
+async def analyze_chart_image_async(image_data: bytes) -> AnalysisResult:
+    """
+    Async wrapper for in-house chart analysis.
+    
+    Runs the CPU-bound image processing in a thread pool to avoid
+    blocking the async event loop.
+    
+    Args:
+        image_data: Raw image bytes
+        
+    Returns:
+        AnalysisResult with detected patterns and analysis
+    """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None,  # Uses default ThreadPoolExecutor
+        analyze_chart_image,
+        image_data
+    )
+

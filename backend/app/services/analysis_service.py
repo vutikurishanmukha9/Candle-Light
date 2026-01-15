@@ -22,6 +22,7 @@ from app.core.exceptions import NotFoundError, ValidationError
 # Allowed image types
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_PAGE_SIZE = 100  # Maximum items per page for pagination
 
 
 class AnalysisService:
@@ -149,11 +150,18 @@ class AnalysisService:
         Args:
             user: The user
             page: Page number (1-indexed)
-            page_size: Items per page
+            page_size: Items per page (max 100)
             
         Returns:
             Tuple of (list of analyses, total count)
         """
+        # Validate pagination parameters
+        if page < 1:
+            page = 1
+        if page_size < 1:
+            page_size = 10
+        if page_size > MAX_PAGE_SIZE:
+            page_size = MAX_PAGE_SIZE
         # Get total count
         count_result = await self.db.execute(
             select(func.count(Analysis.id)).where(
@@ -231,9 +239,15 @@ class AnalysisService:
         try:
             img = Image.open(io.BytesIO(content))
             img.verify()
-        except Exception:
+        except (IOError, OSError) as e:
             raise ValidationError(
-                message="Invalid or corrupted image file"
+                message="Invalid or corrupted image file",
+                details={"error": str(e)}
+            )
+        except Exception as e:
+            raise ValidationError(
+                message="Could not process image file",
+                details={"error": type(e).__name__}
             )
     
     def _get_image_dimensions(self, content: bytes) -> tuple[int, int]:

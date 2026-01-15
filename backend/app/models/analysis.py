@@ -5,7 +5,7 @@ Represents a chart analysis result in the Candle-Light application.
 Stores the image path, detected patterns, and AI-generated insights.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, TYPE_CHECKING
 from sqlalchemy import String, Integer, DateTime, Text, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -131,8 +131,8 @@ class Analysis(Base):
     
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
         index=True
     )
     

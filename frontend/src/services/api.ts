@@ -70,7 +70,7 @@ async function apiRequest<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-  
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...options.headers,
@@ -134,8 +134,11 @@ async function refreshTokens(): Promise<boolean> {
       setTokens(data.access_token, data.refresh_token);
       return true;
     }
-  } catch {
-    // Refresh failed
+    // Log failed refresh for debugging
+    console.warn('Token refresh failed:', response.status);
+  } catch (error) {
+    // Log refresh error for debugging
+    console.error('Token refresh error:', error instanceof Error ? error.message : 'Unknown error');
   }
   return false;
 }

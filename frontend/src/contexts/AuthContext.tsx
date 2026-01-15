@@ -2,6 +2,12 @@
  * Authentication Context
  * 
  * Provides authentication state and methods throughout the app.
+ * 
+ * SECURITY NOTE: Tokens are currently stored in localStorage for simplicity.
+ * For production with high security requirements, consider:
+ * - Using httpOnly cookies for refresh tokens (requires backend changes)
+ * - Keeping access tokens in memory only
+ * - Implementing PKCE for additional security
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
@@ -92,17 +98,21 @@ export function useAuth() {
 
 /**
  * Hook to require authentication
- * Redirects to login if not authenticated
+ * Redirects to login page if not authenticated
  */
-export function useRequireAuth() {
+export function useRequireAuth(redirectTo: string = '/login') {
     const auth = useAuth();
 
     useEffect(() => {
         if (!auth.isLoading && !auth.isLoggedIn) {
-            // Could redirect to login page here
-            console.log('User not authenticated');
+            // Get current location for return redirect after login
+            const currentPath = window.location.pathname;
+            const returnTo = currentPath !== redirectTo ? `?returnTo=${encodeURIComponent(currentPath)}` : '';
+            
+            // Redirect to login page
+            window.location.href = `${redirectTo}${returnTo}`;
         }
-    }, [auth.isLoading, auth.isLoggedIn]);
+    }, [auth.isLoading, auth.isLoggedIn, redirectTo]);
 
     return auth;
 }
