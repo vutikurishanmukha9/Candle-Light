@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   TrendingUp,
   LayoutDashboard,
@@ -9,6 +9,7 @@ import {
   LogOut,
   Menu,
   X,
+  LogIn,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UploadDropzone } from "@/components/UploadDropzone";
@@ -16,6 +17,9 @@ import { AnalysisCard } from "@/components/AnalysisCard";
 import { AnalysisLoadingSkeleton } from "@/components/LoadingSkeleton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { analysisApi, AnalysisResult, ApiError } from "@/services/api";
+import { useToast } from "@/hooks/use-toast";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", active: true },
@@ -24,55 +28,121 @@ const navItems = [
   { icon: Settings, label: "Settings", href: "/settings" },
 ];
 
-// Mock analysis result
-const mockResult = {
-  imageUrl: "",
-  patterns: [
-    { name: "Double Bottom", bias: "bullish" as const },
-    { name: "Hammer", bias: "bullish" as const },
-    { name: "Rising Wedge", bias: "bearish" as const },
-  ],
-  marketBias: "bullish" as const,
-  confidence: 78,
-  reasoning:
-    "The chart shows a clear double bottom formation near the $42,500 support level, followed by a bullish hammer candlestick on increased volume. The price has broken above the neckline resistance at $44,200, suggesting a potential continuation to the upside. However, the rising wedge pattern forming on the shorter timeframe indicates some caution is warranted. Key resistance levels to watch are $45,800 and $47,200. A break below $43,500 would invalidate this bullish setup.",
-  timestamp: new Date(),
-};
+// Convert API result to component format
+function formatAnalysisResult(apiResult: AnalysisResult, imageUrl: string) {
+  return {
+    imageUrl,
+    patterns: apiResult.patterns.map(p => ({
+      name: p.name,
+      bias: p.type as 'bullish' | 'bearish' | 'neutral',
+    })),
+    marketBias: apiResult.market_bias as 'bullish' | 'bearish' | 'neutral',
+    confidence: apiResult.confidence,
+    reasoning: apiResult.reasoning || '',
+    timestamp: new Date(apiResult.created_at),
+  };
+}
 
 export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [result, setResult] = useState<typeof mockResult | null>(null);
+  const [result, setResult] = useState<ReturnType<typeof formatAnalysisResult> | null>(null);
+  const [analysisId, setAnalysisId] = useState<string | null>(null);
+
+  const { user, isLoggedIn, logout, isLoading } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleFileSelect = useCallback((file: File) => {
     setSelectedFile(file);
     setResult(null);
+    setAnalysisId(null);
   }, []);
 
   const handleAnalyze = useCallback(async () => {
     if (!selectedFile) return;
 
+    // Check if user is logged in
+    if (!isLoggedIn) {
+      toast({
+        title: "Login Required",
+        description: "Please login to analyze charts. For demo, analysis still works!",
+        variant: "default",
+      });
+    }
+
     setIsAnalyzing(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    try {
+      // Call the real backend API
+      const response = await analysisApi.uploadChart(selectedFile);
 
-    // Create preview URL from selected file
-    const imageUrl = URL.createObjectURL(selectedFile);
+      // Create preview URL from selected file
+      const imageUrl = URL.createObjectURL(selectedFile);
 
-    setResult({ ...mockResult, imageUrl });
-    setIsAnalyzing(false);
-  }, [selectedFile]);
+      setResult(formatAnalysisResult(response.analysis, imageUrl));
+      setAnalysisId(response.analysis.id);
+
+      toast({
+        title: "Analysis Complete",
+        description: `Detected ${response.analysis.patterns.length} patterns with ${response.analysis.confidence}% confidence`,
+      });
+    } catch (error) {
+      console.error('Analysis failed:', error);
+
+      if (error instanceof ApiError) {
+        if (error.status === 401) {
+          toast({
+            title: "Authentication Required",
+            description: "Please login to analyze charts",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Analysis Failed",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to analyze chart. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [selectedFile, isLoggedIn, toast]);
 
   const handleNewUpload = () => {
     setSelectedFile(null);
     setResult(null);
+    setAnalysisId(null);
   };
 
   const handleSave = () => {
-    // TODO: Implement save functionality
-    console.log("Saving analysis...");
+    if (analysisId) {
+      toast({
+        title: "Saved!",
+        description: "Analysis saved to your history",
+      });
+      navigate('/history');
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({
+        title: "Logged Out",
+        description: "See you next time!",
+      });
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
 
   return (
@@ -124,10 +194,23 @@ export default function Dashboard() {
 
           {/* User section */}
           <div className="p-4 border-t border-sidebar-border">
-            <button className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors">
-              <LogOut className="w-5 h-5" />
-              <span className="font-medium">Sign Out</span>
-            </button>
+            {isLoggedIn ? (
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="font-medium">Sign Out</span>
+              </button>
+            ) : (
+              <Link
+                to="/"
+                className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+              >
+                <LogIn className="w-5 h-5" />
+                <span className="font-medium">Sign In</span>
+              </Link>
+            )}
           </div>
         </div>
       </aside>
@@ -153,7 +236,9 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               <ThemeToggle />
               <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                <span className="text-sm font-medium text-primary">U</span>
+                <span className="text-sm font-medium text-primary">
+                  {user?.full_name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
+                </span>
               </div>
             </div>
           </div>
@@ -169,6 +254,11 @@ export default function Dashboard() {
                   <p className="text-muted-foreground">
                     Drop a candlestick chart image to get AI-powered analysis
                   </p>
+                  {!isLoggedIn && (
+                    <p className="text-sm text-amber-500 mt-2">
+                      Demo mode active - login for full features
+                    </p>
+                  )}
                 </div>
                 <div className="glass-card p-6">
                   <UploadDropzone
@@ -213,3 +303,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

@@ -6,63 +6,30 @@ import {
   History,
   Settings,
   LogOut,
+  LogIn,
   Menu,
   X,
   Calendar,
   TrendingDown,
   Minus,
   Eye,
+  Trash2,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { analysisApi, AnalysisResult, ApiError } from "@/services/api";
+import { useToast } from "@/hooks/use-toast";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
   { icon: Upload, label: "Upload", href: "/dashboard" },
   { icon: History, label: "History", href: "/history", active: true },
   { icon: Settings, label: "Settings", href: "/settings" },
-];
-
-// Mock history data
-const historyItems = [
-  {
-    id: "1",
-    symbol: "BTC/USDT",
-    bias: "bullish" as const,
-    confidence: 82,
-    patterns: ["Double Bottom", "Hammer"],
-    timestamp: new Date(Date.now() - 1000 * 60 * 30),
-    thumbnail: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=200&h=120&fit=crop",
-  },
-  {
-    id: "2",
-    symbol: "ETH/USDT",
-    bias: "bearish" as const,
-    confidence: 65,
-    patterns: ["Head & Shoulders", "Bearish Engulfing"],
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-    thumbnail: "https://images.unsplash.com/photo-1642790551116-18e150f248e3?w=200&h=120&fit=crop",
-  },
-  {
-    id: "3",
-    symbol: "AAPL",
-    bias: "neutral" as const,
-    confidence: 45,
-    patterns: ["Doji", "Spinning Top"],
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
-    thumbnail: "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=200&h=120&fit=crop",
-  },
-  {
-    id: "4",
-    symbol: "TSLA",
-    bias: "bullish" as const,
-    confidence: 71,
-    patterns: ["Morning Star", "Bullish Harami"],
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 48),
-    thumbnail: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=200&h=120&fit=crop",
-  },
 ];
 
 const BiasIcon = {
@@ -90,6 +57,73 @@ function formatTimeAgo(date: Date) {
 
 export default function HistoryPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [historyItems, setHistoryItems] = useState<AnalysisResult[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const { user, isLoggedIn, logout } = useAuth();
+  const { toast } = useToast();
+
+  const fetchHistory = useCallback(async () => {
+    if (!isLoggedIn) {
+      setHistoryItems([]);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await analysisApi.getHistory(page, 10);
+      setHistoryItems(response.items);
+      setTotalPages(response.pages);
+    } catch (error) {
+      console.error('Failed to fetch history:', error);
+      if (error instanceof ApiError && error.status === 401) {
+        toast({
+          title: "Session Expired",
+          description: "Please login again",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isLoggedIn, page, toast]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  const handleDelete = async (id: string) => {
+    try {
+      await analysisApi.deleteAnalysis(id);
+      setHistoryItems(prev => prev.filter(item => item.id !== id));
+      toast({
+        title: "Deleted",
+        description: "Analysis removed from history",
+      });
+    } catch (error) {
+      console.error('Failed to delete:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete analysis",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({
+        title: "Logged Out",
+        description: "See you next time!",
+      });
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -137,10 +171,23 @@ export default function HistoryPage() {
           </nav>
 
           <div className="p-4 border-t border-sidebar-border">
-            <button className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors">
-              <LogOut className="w-5 h-5" />
-              <span className="font-medium">Sign Out</span>
-            </button>
+            {isLoggedIn ? (
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="font-medium">Sign Out</span>
+              </button>
+            ) : (
+              <Link
+                to="/"
+                className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+              >
+                <LogIn className="w-5 h-5" />
+                <span className="font-medium">Sign In</span>
+              </Link>
+            )}
           </div>
         </div>
       </aside>
@@ -159,9 +206,14 @@ export default function HistoryPage() {
               <h1 className="text-xl font-semibold">Analysis History</h1>
             </div>
             <div className="flex items-center gap-3">
+              <Button variant="ghost" size="sm" onClick={fetchHistory} disabled={isLoading}>
+                <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
+              </Button>
               <ThemeToggle />
               <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                <span className="text-sm font-medium text-primary">U</span>
+                <span className="text-sm font-medium text-primary">
+                  {user?.full_name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
+                </span>
               </div>
             </div>
           </div>
@@ -169,62 +221,135 @@ export default function HistoryPage() {
 
         <div className="p-4 lg:p-8">
           <div className="max-w-5xl mx-auto">
-            <div className="grid gap-4">
-              {historyItems.map((item) => {
-                const Icon = BiasIcon[item.bias];
-                return (
-                  <div
-                    key={item.id}
-                    className="glass-card p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:border-primary/30 transition-colors cursor-pointer"
-                  >
-                    <div className="w-full sm:w-32 h-20 rounded-lg overflow-hidden bg-secondary shrink-0">
-                      <img
-                        src={item.thumbnail}
-                        alt={item.symbol}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-semibold text-lg">{item.symbol}</h3>
-                        <span
-                          className={cn(
-                            "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
-                            biasColors[item.bias]
-                          )}
-                        >
-                          <Icon className="w-3 h-3" />
-                          {item.bias.charAt(0).toUpperCase() + item.bias.slice(1)}
-                        </span>
+            {/* Loading state */}
+            {isLoading && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            )}
+
+            {/* Not logged in */}
+            {!isLoading && !isLoggedIn && (
+              <div className="glass-card p-12 text-center">
+                <LogIn className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Login Required</h3>
+                <p className="text-muted-foreground mb-6">
+                  Please login to view your analysis history.
+                </p>
+                <Link to="/">
+                  <Button variant="hero">
+                    Sign In
+                  </Button>
+                </Link>
+              </div>
+            )}
+
+            {/* History list */}
+            {!isLoading && isLoggedIn && historyItems.length > 0 && (
+              <div className="grid gap-4">
+                {historyItems.map((item) => {
+                  const Icon = BiasIcon[item.market_bias as keyof typeof BiasIcon] || Minus;
+                  return (
+                    <div
+                      key={item.id}
+                      className="glass-card p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:border-primary/30 transition-colors"
+                    >
+                      <div className="w-full sm:w-32 h-20 rounded-lg overflow-hidden bg-secondary shrink-0">
+                        {item.image_url ? (
+                          <img
+                            src={`http://localhost:8000${item.image_url}`}
+                            alt="Chart"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <TrendingUp className="w-8 h-8 text-muted-foreground" />
+                          </div>
+                        )}
                       </div>
-                      <div className="flex flex-wrap gap-1.5 mb-2">
-                        {item.patterns.map((pattern) => (
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="font-semibold text-lg">Chart Analysis</h3>
                           <span
-                            key={pattern}
-                            className="px-2 py-0.5 bg-secondary rounded text-xs text-muted-foreground"
+                            className={cn(
+                              "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
+                              biasColors[item.market_bias as keyof typeof biasColors] || biasColors.neutral
+                            )}
                           >
-                            {pattern}
+                            <Icon className="w-3 h-3" />
+                            {item.market_bias.charAt(0).toUpperCase() + item.market_bias.slice(1)}
                           </span>
-                        ))}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {item.patterns.slice(0, 3).map((pattern, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 bg-secondary rounded text-xs text-muted-foreground"
+                            >
+                              {pattern.name}
+                            </span>
+                          ))}
+                          {item.patterns.length > 3 && (
+                            <span className="px-2 py-0.5 bg-secondary rounded text-xs text-muted-foreground">
+                              +{item.patterns.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span className="font-mono">{item.confidence}% confidence</span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {formatTimeAgo(new Date(item.created_at))}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span className="font-mono">{item.confidence}% confidence</span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5" />
-                          {formatTimeAgo(item.timestamp)}
-                        </span>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm">
+                          <Eye className="w-4 h-4" />
+                          View
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(item.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
-                    <Button variant="ghost" size="sm">
-                      <Eye className="w-4 h-4" />
-                      View
+                  );
+                })}
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center gap-2 mt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="flex items-center px-4 text-sm text-muted-foreground">
+                      Page {page} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                    >
+                      Next
                     </Button>
                   </div>
-                );
-              })}
-            </div>
+                )}
+              </div>
+            )}
 
-            {historyItems.length === 0 && (
+            {/* Empty state */}
+            {!isLoading && isLoggedIn && historyItems.length === 0 && (
               <div className="glass-card p-12 text-center">
                 <History className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Analysis History</h3>
@@ -245,3 +370,4 @@ export default function HistoryPage() {
     </div>
   );
 }
+
