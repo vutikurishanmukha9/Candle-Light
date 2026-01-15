@@ -1,7 +1,7 @@
 """
 AI Service
 
-Handles AI-powered chart analysis using OpenAI, Gemini, or demo mode.
+Handles AI-powered chart analysis using OpenAI, Gemini, In-House model, or demo mode.
 Provides a unified interface for different AI providers.
 """
 
@@ -44,6 +44,8 @@ class AIService:
                 result = await self._analyze_with_openai(image_path, image_bytes)
             elif self.provider == "gemini":
                 result = await self._analyze_with_gemini(image_path, image_bytes)
+            elif self.provider == "inhouse":
+                result = await self._analyze_with_inhouse(image_path, image_bytes)
             else:
                 result = await self._analyze_demo(image_path)
             
@@ -54,10 +56,62 @@ class AIService:
             return result
             
         except Exception as e:
+            # Fallback to in-house model if external AI fails
+            if self.provider in ["openai", "gemini"]:
+                try:
+                    result = await self._analyze_with_inhouse(image_path, image_bytes)
+                    processing_time = int((time.time() - start_time) * 1000)
+                    result.processing_time_ms = processing_time
+                    result.ai_provider = f"inhouse (fallback from {self.provider})"
+                    return result
+                except:
+                    pass
+            
             raise AIServiceError(
                 message=f"Chart analysis failed: {str(e)}",
                 details={"provider": self.provider}
             )
+    
+    async def _analyze_with_inhouse(
+        self,
+        image_path: str,
+        image_bytes: Optional[bytes] = None
+    ) -> AnalysisResult:
+        """
+        Analyze chart using the in-house ML model.
+        
+        This provides pattern detection without external AI dependencies.
+        """
+        from app.ml import analyze_chart_image
+        
+        # Load image if not provided
+        if image_bytes is None:
+            with open(image_path, "rb") as f:
+                image_bytes = f.read()
+        
+        # Run in-house analysis
+        inhouse_result = analyze_chart_image(image_bytes)
+        
+        # Convert to API schema format
+        patterns = [
+            PatternResult(
+                name=detected.pattern.name,
+                type=detected.pattern.bias.value,
+                confidence=int(detected.confidence * 100),
+                description=f"{detected.pattern.description} {detected.reasoning}"
+            )
+            for detected in inhouse_result.patterns
+        ]
+        
+        return AnalysisResult(
+            patterns=patterns,
+            market_bias=inhouse_result.market_bias,
+            confidence=int(inhouse_result.overall_confidence * 100),
+            reasoning=inhouse_result.reasoning,
+            ai_provider="inhouse",
+            ai_model="pattern-detector-v1",
+        )
+
     
     async def _analyze_with_openai(
         self,

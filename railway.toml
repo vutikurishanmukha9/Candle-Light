@@ -1,0 +1,21 @@
+# Railway Configuration
+# Deploy to Railway: https://railway.app
+# This file configures the backend service
+
+[build]
+builder = "dockerfile"
+dockerfilePath = "backend/Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+# Environment variable defaults (override in Railway dashboard)
+[variables]
+JWT_ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = "30"
+AI_PROVIDER = "demo"
+PYTHONUNBUFFERED = "1"
+PORT = "8000"

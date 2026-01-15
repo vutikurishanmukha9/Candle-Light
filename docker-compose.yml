@@ -1,0 +1,119 @@
+# Candle-Light Full Stack Development Environment
+# Usage: docker-compose up -d
+
+version: "3.9"
+
+services:
+  # =============================================================================
+  # Backend API Service
+  # =============================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: candle-light-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://candle:candle123@db:5432/candlelight
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-super-secret-key-change-in-production}
+      - JWT_ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - AI_PROVIDER=${AI_PROVIDER:-demo}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY:-}
+      - CORS_ORIGINS=["http://localhost:8080","http://localhost:3000","http://frontend:8080"]
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - backend_data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - candle-network
+
+  # =============================================================================
+  # PostgreSQL Database
+  # =============================================================================
+  db:
+    image: postgres:15-alpine
+    container_name: candle-light-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=candle
+      - POSTGRES_PASSWORD=candle123
+      - POSTGRES_DB=candlelight
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U candle -d candlelight" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - candle-network
+
+  # =============================================================================
+  # Frontend (Development)
+  # =============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: candle-light-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - candle-network
+
+  # =============================================================================
+  # Redis Cache (Optional - for future rate limiting/caching)
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: candle-light-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - candle-network
+
+# =============================================================================
+# Named Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  backend_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  candle-network:
+    driver: bridge
