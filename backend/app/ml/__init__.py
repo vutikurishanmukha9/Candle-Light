@@ -37,8 +37,11 @@ from .pattern_detector import (
     PatternDetector,
     DetectedPattern,
     AnalysisResult,
+    SupportResistance,
     analyze_chart_image,
-    pattern_detector,
+    analyze_chart_image_async,
+    get_pattern_detector,
+    get_pattern_summary,
 )
 
 
@@ -59,6 +62,10 @@ __all__ = [
     "PatternDetector",
     "DetectedPattern",
     "AnalysisResult",
+    "SupportResistance",
     "analyze_chart_image",
-    "pattern_detector",
+    "analyze_chart_image_async",
+    "get_pattern_detector",
+    "get_pattern_summary",
 ]
+
