@@ -14,8 +14,30 @@ restartPolicyMaxRetries = 3
 
 # Environment variable defaults (override in Railway dashboard)
 [variables]
+# JWT Authentication
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = "30"
+# AI Configuration
 AI_PROVIDER = "demo"
+# Storage (use S3 for production)
+STORAGE_TYPE = "local"
+S3_REGION = "us-east-1"
+# URLs (override with actual deployed URLs)
+# APP_URL = "https://your-backend.up.railway.app"
+# FRONTEND_URL = "https://your-frontend.vercel.app"
+# Misc
 PYTHONUNBUFFERED = "1"
 PORT = "8000"
+
+# NOTE: Set these in Railway dashboard (not in source control):
+# - JWT_SECRET_KEY
+# - DATABASE_URL
+# - OPENAI_API_KEY
+# - GOOGLE_AI_API_KEY
+# - GOOGLE_CLIENT_ID
+# - GOOGLE_CLIENT_SECRET
+# - SESSION_SECRET_KEY
+# - S3_BUCKET_NAME
+# - AWS_ACCESS_KEY_ID
+# - AWS_SECRET_ACCESS_KEY
+

@@ -16,22 +16,50 @@ services:
     branch: main
     healthCheckPath: /health
     envVars:
+      # Database
       - key: DATABASE_URL
         fromDatabase:
           name: candle-light-db
           property: connectionString
+      # JWT Authentication
       - key: JWT_SECRET_KEY
         generateValue: true
       - key: JWT_ALGORITHM
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: 30
+      # AI Configuration
       - key: AI_PROVIDER
         value: demo
       - key: OPENAI_API_KEY
         sync: false
       - key: GOOGLE_AI_API_KEY
         sync: false
+      # OAuth (Google)
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      # Session (for OAuth state)
+      - key: SESSION_SECRET_KEY
+        generateValue: true
+      # URLs (for OAuth redirects)
+      - key: APP_URL
+        value: https://candle-light-api.onrender.com
+      - key: FRONTEND_URL
+        value: https://candle-light.onrender.com
+      # S3 Storage (optional)
+      - key: STORAGE_TYPE
+        value: local
+      - key: S3_BUCKET_NAME
+        sync: false
+      - key: S3_REGION
+        value: us-east-1
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      # CORS
       - key: CORS_ORIGINS
         value: '["https://candle-light.onrender.com","http://localhost:8080"]'
       - key: PYTHONUNBUFFERED
