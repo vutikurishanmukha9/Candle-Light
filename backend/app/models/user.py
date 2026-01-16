@@ -90,6 +90,41 @@ class User(Base):
         nullable=True
     )
     
+    # User preferences (JSON)
+    preferences: Mapped[Optional[dict]] = mapped_column(
+        Text,  # Stored as JSON string
+        nullable=True,
+        default=None
+    )
+    
+    @property
+    def user_preferences(self) -> dict:
+        """Get user preferences with defaults."""
+        import json
+        defaults = {
+            "theme": "dark",
+            "ai_provider": "inhouse",
+            "notifications_enabled": True,
+            "email_notifications": False,
+            "default_timeframe": "1h",
+            "show_confidence_scores": True,
+            "auto_analyze": False,
+        }
+        if self.preferences:
+            try:
+                stored = json.loads(self.preferences) if isinstance(self.preferences, str) else self.preferences
+                return {**defaults, **stored}
+            except (json.JSONDecodeError, TypeError):
+                return defaults
+        return defaults
+    
+    def set_preferences(self, prefs: dict) -> None:
+        """Update user preferences."""
+        import json
+        current = self.user_preferences
+        current.update(prefs)
+        self.preferences = json.dumps(current)
+    
     # Relationships
     analyses: Mapped[List["Analysis"]] = relationship(
         "Analysis",

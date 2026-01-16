@@ -186,3 +186,74 @@ async def delete_analysis(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=e.message
         )
+
+
+@router.get("/{analysis_id}/export")
+async def export_analysis(
+    analysis_id: str,
+    format: str = Query("json", regex="^(json|csv|txt)$", description="Export format"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Export an analysis to JSON, CSV, or TXT format.
+    
+    - **format**: Export format (json, csv, txt)
+    
+    Returns downloadable file.
+    """
+    from fastapi.responses import Response
+    from app.services.export_service import export_service
+    
+    try:
+        analysis_service = AnalysisService(db)
+        analysis = await analysis_service.get_analysis(analysis_id, current_user)
+        
+        result = export_service.export_analysis(analysis, format)
+        
+        return Response(
+            content=result.content,
+            media_type=result.content_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{result.filename}"'
+            }
+        )
+        
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=e.message
+        )
+
+
+@router.get("/history/export")
+async def export_history(
+    format: str = Query("csv", regex="^(json|csv)$", description="Export format"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Export all analysis history to JSON or CSV format.
+    
+    Returns downloadable file with all user's analyses.
+    """
+    from fastapi.responses import Response
+    from app.services.export_service import export_service
+    
+    analysis_service = AnalysisService(db)
+    analyses, _ = await analysis_service.get_user_history(
+        user=current_user,
+        page=1,
+        page_size=1000  # Export all
+    )
+    
+    result = export_service.export_history(analyses, format)
+    
+    return Response(
+        content=result.content,
+        media_type=result.content_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{result.filename}"'
+        }
+    )
+

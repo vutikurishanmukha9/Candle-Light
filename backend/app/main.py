@@ -20,6 +20,7 @@ from app.routers import (
     analysis_router,
     user_router,
     health_router,
+    settings_router,
 )
 
 
@@ -123,6 +124,7 @@ app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(analysis_router)
 app.include_router(user_router)
+app.include_router(settings_router)
 
 
 # Root endpoint
