@@ -80,6 +80,14 @@ app.add_middleware(
     burst=settings.rate_limit_burst,
 )
 
+# Add session middleware for OAuth state storage
+from starlette.middleware.sessions import SessionMiddleware
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.session_secret_key,
+    max_age=3600,  # 1 hour session expiry
+)
+
 
 # Mount static files for uploads
 app.mount(

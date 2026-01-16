@@ -124,6 +124,25 @@ class Settings(BaseSettings):
     rate_limit_burst: int = 10
     
     # ===================
+    # URLs (for OAuth redirects)
+    # ===================
+    app_url: str = "http://localhost:8000"  # Backend URL
+    frontend_url: str = "http://localhost:5173"  # Frontend URL
+    
+    # ===================
+    # Session (for OAuth state)
+    # ===================
+    session_secret_key: str = ""
+    
+    @field_validator("session_secret_key", mode="before")
+    @classmethod
+    def generate_session_secret_if_empty(cls, v):
+        """Generate a secure session secret if not provided."""
+        if not v:
+            return secrets.token_urlsafe(32)
+        return v
+    
+    # ===================
     # CORS
     # ===================
     cors_origins: List[str] = [

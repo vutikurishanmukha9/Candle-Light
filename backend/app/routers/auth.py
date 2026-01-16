@@ -4,7 +4,7 @@ Authentication Router
 Handles user registration, login, and token management.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -123,3 +123,149 @@ async def logout(
         "message": "Logged out successfully",
         "detail": "Please discard your access and refresh tokens"
     }
+
+
+# ============================================================
+# OAuth Endpoints
+# ============================================================
+
+@router.get("/providers")
+async def get_oauth_providers():
+    """
+    Get list of available OAuth providers.
+    
+    Returns enabled OAuth providers for the frontend to display.
+    """
+    from app.services.oauth_service import oauth_service
+    
+    return {
+        "providers": oauth_service.get_available_providers()
+    }
+
+
+@router.get("/google")
+async def google_oauth_login(
+    request: Request,
+    redirect_url: str = None
+):
+    """
+    Initiate Google OAuth login.
+    
+    Redirects user to Google's authorization page.
+    
+    - **redirect_url**: Optional URL to redirect after successful login
+    """
+    from fastapi.responses import RedirectResponse
+    from app.services.oauth_service import oauth_service
+    from app.config import settings
+    
+    if not oauth_service.google_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google OAuth is not configured"
+        )
+    
+    # Build callback URL
+    callback_url = f"{settings.app_url}/auth/google/callback"
+    
+    # Store redirect URL in session for after callback
+    if redirect_url:
+        request.session['oauth_redirect'] = redirect_url
+    
+    # Get Google authorization URL
+    google = oauth_service.oauth.create_client('google')
+    redirect = await google.authorize_redirect(request, callback_url)
+    
+    return redirect
+
+
+@router.get("/google/callback")
+async def google_oauth_callback(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Handle Google OAuth callback.
+    
+    Exchanges authorization code for tokens and creates/updates user.
+    """
+    from fastapi.responses import RedirectResponse
+    from app.services.oauth_service import oauth_service, OAuthUserInfo
+    from app.config import settings
+    from datetime import datetime, timezone
+    
+    if not oauth_service.google_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google OAuth is not configured"
+        )
+    
+    try:
+        # Get Google client and exchange code for token
+        google = oauth_service.oauth.create_client('google')
+        token = await google.authorize_access_token(request)
+        
+        # Get user info from token
+        user_info = token.get('userinfo')
+        if not user_info:
+            user_info = await google.userinfo()
+        
+        email = user_info.get('email')
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email not provided by Google"
+            )
+        
+        # Check if user exists
+        from sqlalchemy import select
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+        
+        if user:
+            # Update existing user with OAuth info
+            user.oauth_provider = 'google'
+            user.oauth_id = user_info.get('sub', '')
+            user.last_login = datetime.now(timezone.utc)
+            if not user.full_name and user_info.get('name'):
+                user.full_name = user_info.get('name')
+            if not user.avatar_url and user_info.get('picture'):
+                user.avatar_url = user_info.get('picture')
+            user.is_verified = True  # Google verified the email
+        else:
+            # Create new user
+            user = User(
+                email=email,
+                full_name=user_info.get('name'),
+                avatar_url=user_info.get('picture'),
+                oauth_provider='google',
+                oauth_id=user_info.get('sub', ''),
+                is_verified=True,
+                is_active=True
+            )
+            db.add(user)
+        
+        await db.commit()
+        await db.refresh(user)
+        
+        # Generate tokens
+        auth_service = AuthService(db)
+        tokens = auth_service._create_tokens(user)
+        
+        # Get redirect URL from session
+        redirect_url = request.session.pop('oauth_redirect', None)
+        
+        # Redirect to frontend with tokens
+        frontend_url = redirect_url or settings.frontend_url or "http://localhost:5173"
+        callback_params = f"?access_token={tokens['access_token']}&refresh_token={tokens['refresh_token']}"
+        
+        return RedirectResponse(url=f"{frontend_url}/auth/callback{callback_params}")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"OAuth authentication failed: {str(e)}"
+        )
+

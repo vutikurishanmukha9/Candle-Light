@@ -5,6 +5,11 @@ from app.schemas.user import (
     UserUpdate,
     UserResponse,
     UserInDB,
+    UserPreferences,
+    UserWithPreferences,
+    OAuthProvider,
+    OAuthProvidersResponse,
+    OAuthCallbackResponse,
 )
 from app.schemas.auth import (
     Token,
@@ -16,8 +21,13 @@ from app.schemas.auth import (
 from app.schemas.analysis import (
     PatternResult,
     AnalysisCreate,
+    AnalysisResult,
     AnalysisResponse,
     AnalysisListResponse,
+    AnalysisUploadResponse,
+    ExportFormat,
+    ExportResponse,
+    HistoryExportRequest,
 )
 
 __all__ = [
@@ -26,6 +36,11 @@ __all__ = [
     "UserUpdate", 
     "UserResponse",
     "UserInDB",
+    "UserPreferences",
+    "UserWithPreferences",
+    "OAuthProvider",
+    "OAuthProvidersResponse",
+    "OAuthCallbackResponse",
     # Auth
     "Token",
     "TokenPayload",
@@ -35,6 +50,12 @@ __all__ = [
     # Analysis
     "PatternResult",
     "AnalysisCreate",
+    "AnalysisResult",
     "AnalysisResponse",
     "AnalysisListResponse",
+    "AnalysisUploadResponse",
+    "ExportFormat",
+    "ExportResponse",
+    "HistoryExportRequest",
 ]
+

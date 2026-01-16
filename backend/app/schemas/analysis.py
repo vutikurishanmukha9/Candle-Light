@@ -80,3 +80,27 @@ class AnalysisUploadResponse(BaseModel):
     """Schema for upload and analysis response."""
     message: str = "Analysis completed successfully"
     analysis: AnalysisResponse
+
+
+# ============================================================
+# Export Schemas
+# ============================================================
+
+class ExportFormat(BaseModel):
+    """Schema for export format options."""
+    format: Literal["json", "csv", "txt"] = "json"
+
+
+class ExportResponse(BaseModel):
+    """Schema for export metadata (actual file is returned as download)."""
+    filename: str
+    content_type: str
+    size_bytes: int
+
+
+class HistoryExportRequest(BaseModel):
+    """Schema for history export request."""
+    format: Literal["json", "csv"] = "csv"
+    date_from: Optional[datetime] = None
+    date_to: Optional[datetime] = None
+
