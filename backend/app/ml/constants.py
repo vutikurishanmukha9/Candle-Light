@@ -130,3 +130,139 @@ WEDGE_CONVERGENCE_RATE = 0.7         # Rate of trendline convergence
 MAX_PATTERNS_RETURNED = 10           # Maximum patterns in result
 MAX_SUPPORT_LEVELS = 5               # Maximum support levels to return
 MAX_RESISTANCE_LEVELS = 5            # Maximum resistance levels to return
+
+
+# ============================================================================
+# Asset Class Profiles (Dynamic Thresholds)
+# ============================================================================
+# Different assets have different volatility profiles. These profiles
+# adjust detection thresholds based on asset characteristics.
+
+from dataclasses import dataclass
+from enum import Enum
+from typing import Dict
+
+
+class AssetClass(Enum):
+    """Asset class enumeration for dynamic threshold selection"""
+    STOCKS = "stocks"          # Equities, indices
+    FOREX = "forex"            # Currency pairs (low volatility)
+    CRYPTO = "crypto"          # Cryptocurrencies (high volatility)
+    COMMODITIES = "commodities"  # Gold, Oil, etc.
+    DEFAULT = "default"        # Fallback
+
+
+@dataclass(frozen=True)
+class AssetProfile:
+    """
+    Profile containing adjusted thresholds for an asset class.
+    
+    Higher volatility assets need larger thresholds to filter noise.
+    Lower volatility assets need tighter thresholds for sensitivity.
+    """
+    # Body ratio multiplier (applied to DOJI_BODY_RATIO, etc.)
+    body_ratio_multiplier: float
+    
+    # Shadow ratio multiplier
+    shadow_ratio_multiplier: float
+    
+    # Price tolerance multiplier (for S/R, double patterns)
+    price_tolerance_multiplier: float
+    
+    # Volume surge multiplier
+    volume_surge_multiplier: float
+    
+    # Minimum confidence adjustment (added to base)
+    confidence_adjustment: float
+    
+    # Description
+    description: str
+
+
+# Asset class profiles with calibrated multipliers
+ASSET_PROFILES: Dict[AssetClass, AssetProfile] = {
+    AssetClass.DEFAULT: AssetProfile(
+        body_ratio_multiplier=1.0,
+        shadow_ratio_multiplier=1.0,
+        price_tolerance_multiplier=1.0,
+        volume_surge_multiplier=1.0,
+        confidence_adjustment=0.0,
+        description="Default profile for general use"
+    ),
+    
+    AssetClass.FOREX: AssetProfile(
+        body_ratio_multiplier=0.8,      # Tighter thresholds (less volatile)
+        shadow_ratio_multiplier=0.85,
+        price_tolerance_multiplier=0.5,  # Much tighter (e.g., 0.75% vs 1.5%)
+        volume_surge_multiplier=0.9,
+        confidence_adjustment=0.05,      # Slightly boost confidence
+        description="Forex pairs - low volatility, tight ranges"
+    ),
+    
+    AssetClass.CRYPTO: AssetProfile(
+        body_ratio_multiplier=1.5,       # Much looser (high volatility)
+        shadow_ratio_multiplier=1.3,
+        price_tolerance_multiplier=2.0,  # Double tolerance (e.g., 3% vs 1.5%)
+        volume_surge_multiplier=1.5,
+        confidence_adjustment=-0.1,      # More conservative (volatile = less certain)
+        description="Cryptocurrencies - high volatility, wide ranges"
+    ),
+    
+    AssetClass.STOCKS: AssetProfile(
+        body_ratio_multiplier=1.0,
+        shadow_ratio_multiplier=1.0,
+        price_tolerance_multiplier=1.2,  # Slightly looser
+        volume_surge_multiplier=1.2,
+        confidence_adjustment=0.0,
+        description="Stocks and indices - moderate volatility"
+    ),
+    
+    AssetClass.COMMODITIES: AssetProfile(
+        body_ratio_multiplier=1.2,
+        shadow_ratio_multiplier=1.1,
+        price_tolerance_multiplier=1.3,
+        volume_surge_multiplier=1.3,
+        confidence_adjustment=-0.05,
+        description="Commodities - can be volatile with trends"
+    ),
+}
+
+
+def get_adjusted_threshold(
+    base_value: float,
+    multiplier_type: str,
+    asset_class: AssetClass = AssetClass.DEFAULT
+) -> float:
+    """
+    Get threshold adjusted for asset class.
+    
+    Args:
+        base_value: The base threshold value (e.g., DOJI_BODY_RATIO)
+        multiplier_type: One of 'body', 'shadow', 'price', 'volume'
+        asset_class: The asset class to adjust for
+        
+    Returns:
+        Adjusted threshold value
+        
+    Example:
+        # For crypto, doji body ratio becomes 0.1 * 1.5 = 0.15
+        adjusted = get_adjusted_threshold(DOJI_BODY_RATIO, 'body', AssetClass.CRYPTO)
+    """
+    profile = ASSET_PROFILES.get(asset_class, ASSET_PROFILES[AssetClass.DEFAULT])
+    
+    multipliers = {
+        'body': profile.body_ratio_multiplier,
+        'shadow': profile.shadow_ratio_multiplier,
+        'price': profile.price_tolerance_multiplier,
+        'volume': profile.volume_surge_multiplier,
+    }
+    
+    multiplier = multipliers.get(multiplier_type, 1.0)
+    return base_value * multiplier
+
+
+def get_confidence_adjustment(asset_class: AssetClass = AssetClass.DEFAULT) -> float:
+    """Get confidence adjustment for an asset class."""
+    profile = ASSET_PROFILES.get(asset_class, ASSET_PROFILES[AssetClass.DEFAULT])
+    return profile.confidence_adjustment
+

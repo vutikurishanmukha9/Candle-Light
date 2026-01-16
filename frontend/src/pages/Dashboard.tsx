@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   TrendingUp,
@@ -46,6 +46,7 @@ function formatAnalysisResult(apiResult: AnalysisResult, imageUrl: string) {
 export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<ReturnType<typeof formatAnalysisResult> | null>(null);
   const [analysisId, setAnalysisId] = useState<string | null>(null);
@@ -53,6 +54,22 @@ export default function Dashboard() {
   const { user, isLoggedIn, logout, isLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // MEMORY MANAGEMENT: Cleanup blob URLs to prevent memory leaks
+  // Revoke the previous URL when file changes or component unmounts
+  useEffect(() => {
+    if (selectedFile) {
+      const url = URL.createObjectURL(selectedFile);
+      setPreviewUrl(url);
+
+      // Cleanup: revoke the URL when file changes or component unmounts
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    } else {
+      setPreviewUrl(null);
+    }
+  }, [selectedFile]);
 
   const handleFileSelect = useCallback((file: File) => {
     setSelectedFile(file);
@@ -78,10 +95,9 @@ export default function Dashboard() {
       // Call the real backend API
       const response = await analysisApi.uploadChart(selectedFile);
 
-      // Create preview URL from selected file
-      const imageUrl = URL.createObjectURL(selectedFile);
-
-      setResult(formatAnalysisResult(response.analysis, imageUrl));
+      // Use the previewUrl from state (managed by useEffect with cleanup)
+      // This prevents memory leaks from orphaned blob URLs
+      setResult(formatAnalysisResult(response.analysis, previewUrl || ''));
       setAnalysisId(response.analysis.id);
 
       toast({

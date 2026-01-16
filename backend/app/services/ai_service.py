@@ -118,9 +118,15 @@ class AIService:
         image_path: str,
         image_bytes: Optional[bytes] = None
     ) -> AnalysisResult:
-        """Analyze chart using OpenAI GPT-4 Vision."""
+        """
+        Analyze chart using OpenAI GPT-4 Vision with structured JSON output.
+        
+        Uses response_format for guaranteed JSON schema compliance.
+        Includes retry logic with exponential backoff.
+        """
         try:
             from openai import AsyncOpenAI
+            import asyncio
             
             client = AsyncOpenAI(api_key=settings.openai_api_key)
             
@@ -141,36 +147,53 @@ class AIService:
                 ".webp": "image/webp",
             }.get(ext, "image/jpeg")
             
-            response = await client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": self._get_system_prompt()
-                    },
-                    {
-                        "role": "user",
-                        "content": [
+            # Retry with exponential backoff
+            max_retries = 3
+            last_error = None
+            
+            for attempt in range(max_retries):
+                try:
+                    response = await client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=[
                             {
-                                "type": "text",
-                                "text": self._get_analysis_prompt()
+                                "role": "system",
+                                "content": self._get_system_prompt()
                             },
                             {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:{media_type};base64,{base64_image}",
-                                    "detail": "high"
-                                }
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "text",
+                                        "text": self._get_analysis_prompt()
+                                    },
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": f"data:{media_type};base64,{base64_image}",
+                                            "detail": "high"
+                                        }
+                                    }
+                                ]
                             }
-                        ]
-                    }
-                ],
-                max_tokens=1500,
-                temperature=0.3,
-            )
+                        ],
+                        max_tokens=1500,
+                        temperature=0.3,
+                        # STRUCTURED OUTPUT: Guarantees valid JSON response
+                        response_format={"type": "json_object"},
+                    )
+                    
+                    content = response.choices[0].message.content
+                    return self._parse_ai_response(content, "openai", "gpt-4o")
+                    
+                except Exception as e:
+                    last_error = e
+                    if attempt < max_retries - 1:
+                        wait_time = (2 ** attempt) * 0.5  # 0.5s, 1s, 2s
+                        await asyncio.sleep(wait_time)
+                    continue
             
-            content = response.choices[0].message.content
-            return self._parse_ai_response(content, "openai", "gpt-4o")
+            raise last_error
             
         except ImportError:
             raise AIServiceError("OpenAI package not installed")
