@@ -75,7 +75,8 @@ class Settings(BaseSettings):
     # ===================
     openai_api_key: str = ""
     google_ai_api_key: str = ""
-    ai_provider: Literal["openai", "gemini", "inhouse", "demo"] = "demo"
+    anthropic_api_key: str = ""
+    ai_provider: Literal["openai", "gemini", "anthropic", "inhouse", "demo"] = "demo"
     
     @property
     def ai_enabled(self) -> bool:
@@ -84,6 +85,8 @@ class Settings(BaseSettings):
             return bool(self.openai_api_key)
         elif self.ai_provider == "gemini":
             return bool(self.google_ai_api_key)
+        elif self.ai_provider == "anthropic":
+            return bool(self.anthropic_api_key)
         return True  # Demo mode is always available
     
     # ===================

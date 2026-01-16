@@ -50,53 +50,69 @@ const technicalTerms: Record<string, string> = {
     "candlestick": "A way to display price movement showing open, high, low, and close prices.",
 };
 
-// Parse the AI reasoning into structured sections
+// Parse the AI reasoning into structured sections based on markdown headers
 function parseAnalysisText(text: string): ParsedSection[] {
     const sections: ParsedSection[] = [];
 
-    // Split by double asterisks for section headers
-    const parts = text.split(/\*\*([^*]+)\*\*/g);
+    // Split by markdown headers (## or ###)
+    const lines = text.split('\n');
+    let currentSection: ParsedSection | null = null;
+    let currentContent: string[] = [];
 
-    let currentType: ParsedSection["type"] = "text";
+    const getSectionType = (header: string): ParsedSection["type"] => {
+        const h = header.toLowerCase();
+        if (h.includes("summary") || h.includes("executive") || h.includes("overview")) return "summary";
+        if (h.includes("pattern") && !h.includes("breakdown")) return "pattern";
+        if (h.includes("breakdown") || h.includes("analysis")) return "pattern";
+        if (h.includes("entry") || h.includes("strategy")) return "signals";
+        if (h.includes("risk") || h.includes("caution") || h.includes("warning")) return "caution";
+        if (h.includes("level") || h.includes("support") || h.includes("resistance") || h.includes("target")) return "levels";
+        if (h.includes("recommendation") || h.includes("conclusion") || h.includes("verdict") || h.includes("action")) return "recommendation";
+        return "text";
+    };
 
-    for (let i = 0; i < parts.length; i++) {
-        const part = parts[i].trim();
-        if (!part) continue;
-
-        // Check if this is a section header
-        const headerLower = part.toLowerCase();
-
-        if (headerLower.includes("chart analysis") || headerLower.includes("summary")) {
-            currentType = "summary";
-            continue;
-        } else if (headerLower.includes("primary pattern") || headerLower.includes("pattern")) {
-            currentType = "pattern";
-            continue;
-        } else if (headerLower.includes("supporting signal") || headerLower.includes("signal")) {
-            currentType = "signals";
-            continue;
-        } else if (headerLower.includes("caution") || headerLower.includes("warning") || headerLower.includes("risk")) {
-            currentType = "caution";
-            continue;
-        } else if (headerLower.includes("key level") || headerLower.includes("support") || headerLower.includes("resistance")) {
-            currentType = "levels";
-            continue;
-        } else if (headerLower.includes("recommendation") || headerLower.includes("conclusion")) {
-            currentType = "recommendation";
-            continue;
+    const saveCurrentSection = () => {
+        if (currentSection && currentContent.length > 0) {
+            currentSection.content = currentContent.join('\n').trim();
+            if (currentSection.content.length > 10) {
+                sections.push(currentSection);
+            }
         }
+        currentContent = [];
+    };
 
-        // This is content
-        if (part.length > 10) {
-            sections.push({
-                type: currentType,
-                content: part
-            });
-            currentType = "text"; // Reset for next section
+    for (const line of lines) {
+        // Check for markdown headers (## or ###)
+        const headerMatch = line.match(/^#{2,3}\s+(.+)$/);
+
+        if (headerMatch) {
+            // Save previous section
+            saveCurrentSection();
+
+            // Start new section
+            const headerText = headerMatch[1].trim();
+            currentSection = {
+                type: getSectionType(headerText),
+                title: headerText,
+                content: ""
+            };
+        } else if (line.trim() === "---") {
+            // Skip horizontal rules
+            continue;
+        } else if (currentSection) {
+            // Add to current section
+            currentContent.push(line);
+        } else if (line.trim()) {
+            // No section yet, create a summary section
+            currentSection = { type: "summary", content: "" };
+            currentContent.push(line);
         }
     }
 
-    // If no sections were parsed, return the whole text as summary
+    // Don't forget the last section
+    saveCurrentSection();
+
+    // If no sections found, return the whole text as summary
     if (sections.length === 0) {
         return [{ type: "summary", content: text }];
     }
@@ -274,6 +290,88 @@ export function AIAnalysisDisplay({ reasoning, className }: AIAnalysisDisplayPro
                     const config = sectionConfig[section.type];
                     const Icon = config.icon;
 
+                    // Use parsed title if available, otherwise use config title
+                    const displayTitle = section.title || config.title;
+
+                    // Render content with proper line breaks and markdown formatting
+                    const renderContent = (content: string) => {
+                        // Split into lines and filter empty ones
+                        const lines = content.split('\n').filter(line => line.trim());
+
+                        return lines.map((line, lineIdx) => {
+                            const trimmedLine = line.trim();
+
+                            // Skip empty lines
+                            if (!trimmedLine) return null;
+
+                            // Check for bullet points
+                            if (trimmedLine.startsWith('-') || trimmedLine.startsWith('*')) {
+                                const bulletContent = trimmedLine.replace(/^[-*]\s*/, '');
+                                return (
+                                    <div key={lineIdx} className="flex gap-2 py-1">
+                                        <span className="text-muted-foreground">•</span>
+                                        <span><TextWithTooltips text={bulletContent} /></span>
+                                    </div>
+                                );
+                            }
+
+                            // Check for numbered list items
+                            const numMatch = trimmedLine.match(/^(\d+)\.\s*(.*)$/);
+                            if (numMatch) {
+                                return (
+                                    <div key={lineIdx} className="flex gap-3 py-1">
+                                        <span className={cn(
+                                            "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold",
+                                            config.bgClass.replace("/5", "/20"),
+                                            config.iconClass
+                                        )}>
+                                            {numMatch[1]}
+                                        </span>
+                                        <span className="flex-1 pt-0.5">
+                                            <TextWithTooltips text={numMatch[2]} />
+                                        </span>
+                                    </div>
+                                );
+                            }
+
+                            // Check for bold labels (e.g., "**Label:** Value")
+                            const boldMatch = trimmedLine.match(/^\*\*([^*]+)\*\*[:\s]*(.*)/);
+                            if (boldMatch) {
+                                return (
+                                    <div key={lineIdx} className="py-1">
+                                        <span className="font-semibold"><TextWithTooltips text={boldMatch[1]} /></span>
+                                        {boldMatch[2] && <span className="text-foreground/80">: <TextWithTooltips text={boldMatch[2]} /></span>}
+                                    </div>
+                                );
+                            }
+
+                            // Check for bracket markers like [MET] or [PENDING]
+                            const bracketMatch = trimmedLine.match(/^\[([A-Z]+)\]\s*(.*)/);
+                            if (bracketMatch) {
+                                const status = bracketMatch[1];
+                                const isComplete = status === 'MET' || status === 'DONE' || status === 'YES';
+                                return (
+                                    <div key={lineIdx} className="flex gap-2 py-1">
+                                        <span className={cn(
+                                            "text-xs px-1.5 py-0.5 rounded font-medium",
+                                            isComplete ? "bg-success/20 text-success" : "bg-warning/20 text-warning"
+                                        )}>
+                                            {status}
+                                        </span>
+                                        <span><TextWithTooltips text={bracketMatch[2]} /></span>
+                                    </div>
+                                );
+                            }
+
+                            // Regular paragraph
+                            return (
+                                <p key={lineIdx} className="py-1">
+                                    <TextWithTooltips text={trimmedLine} />
+                                </p>
+                            );
+                        });
+                    };
+
                     return (
                         <div
                             key={idx}
@@ -293,14 +391,15 @@ export function AIAnalysisDisplay({ reasoning, className }: AIAnalysisDisplayPro
                                 )}>
                                     <Icon className={cn("w-4.5 h-4.5", config.iconClass)} />
                                 </div>
-                                <div className="space-y-1.5 flex-1 min-w-0">
+                                <div className="space-y-2 flex-1 min-w-0">
                                     <div>
-                                        <h4 className="text-sm font-semibold">{config.title}</h4>
+                                        <h4 className="text-sm font-semibold">{displayTitle}</h4>
                                         <p className="text-xs text-muted-foreground">{config.subtitle}</p>
                                     </div>
-                                    <p className="text-sm leading-relaxed text-foreground/85">
-                                        <TextWithTooltips text={section.content} />
-                                    </p>
+
+                                    <div className="text-sm leading-relaxed text-foreground/85">
+                                        {renderContent(section.content)}
+                                    </div>
                                 </div>
                             </div>
                         </div>

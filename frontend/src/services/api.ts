@@ -228,6 +228,17 @@ export interface PatternResult {
   description?: string;
 }
 
+export interface EntryTiming {
+  signal: 'wait' | 'prepare' | 'ready' | 'now';
+  timing_description?: string;
+  conditions?: string[];
+  entry_price_zone?: string;
+  stop_loss?: string;
+  take_profit?: string;
+  risk_reward?: string;
+  timeframe?: string;
+}
+
 export interface AnalysisResult {
   id: string;
   image_url: string | null;
@@ -239,6 +250,7 @@ export interface AnalysisResult {
   created_at: string;
   ai_provider: string | null;
   processing_time_ms: number | null;
+  entry_timing?: EntryTiming;
 }
 
 export interface AnalysisUploadResponse {
