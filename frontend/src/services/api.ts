@@ -2,49 +2,44 @@
  * API Client Configuration
  * 
  * Centralized API client for communicating with the FastAPI backend.
+ * 
+ * SECURITY: 
+ * - Access token stored in memory only (not localStorage) → XSS-safe
+ * - Refresh token stored in HttpOnly cookie by backend → XSS-safe
  */
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-// Token storage keys
-const ACCESS_TOKEN_KEY = 'candle_light_access_token';
-const REFRESH_TOKEN_KEY = 'candle_light_refresh_token';
+// In-memory token storage (XSS-safe - not accessible to injected scripts)
+let accessToken: string | null = null;
 
 /**
- * Get stored access token
+ * Get stored access token (memory only)
  */
 export function getAccessToken(): string | null {
-  return localStorage.getItem(ACCESS_TOKEN_KEY);
+  return accessToken;
 }
 
 /**
- * Get stored refresh token
+ * Set access token in memory
  */
-export function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
+export function setAccessToken(token: string | null): void {
+  accessToken = token;
 }
 
 /**
- * Store tokens in localStorage
- */
-export function setTokens(accessToken: string, refreshToken: string): void {
-  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-}
-
-/**
- * Clear stored tokens
+ * Clear stored tokens (memory + instructs backend to clear cookie on next request)
  */
 export function clearTokens(): void {
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  accessToken = null;
+  // Note: HttpOnly cookie is cleared by backend on logout or failed refresh
 }
 
 /**
  * Check if user is authenticated
  */
 export function isAuthenticated(): boolean {
-  return !!getAccessToken();
+  return !!accessToken;
 }
 
 /**
@@ -77,23 +72,23 @@ async function apiRequest<T>(
   };
 
   // Add auth token if available
-  const token = getAccessToken();
-  if (token) {
-    (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+  if (accessToken) {
+    (headers as Record<string, string>)['Authorization'] = `Bearer ${accessToken}`;
   }
 
   const response = await fetch(url, {
     ...options,
     headers,
+    credentials: 'include',  // IMPORTANT: Send HttpOnly cookies with requests
   });
 
   // Handle 401 - try to refresh token
-  if (response.status === 401 && getRefreshToken()) {
+  if (response.status === 401) {
     const refreshed = await refreshTokens();
     if (refreshed) {
       // Retry the request with new token
-      (headers as Record<string, string>)['Authorization'] = `Bearer ${getAccessToken()}`;
-      const retryResponse = await fetch(url, { ...options, headers });
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${accessToken}`;
+      const retryResponse = await fetch(url, { ...options, headers, credentials: 'include' });
       if (retryResponse.ok) {
         return retryResponse.json();
       }
@@ -116,22 +111,22 @@ async function apiRequest<T>(
 }
 
 /**
- * Refresh access token
+ * Refresh access token using HttpOnly cookie
+ * 
+ * The refresh_token is automatically sent via HttpOnly cookie.
+ * Backend returns new access_token in body and sets new refresh_token cookie.
  */
 async function refreshTokens(): Promise<boolean> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return false;
-
   try {
     const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+      credentials: 'include',  // Send HttpOnly refresh_token cookie
     });
 
     if (response.ok) {
       const data = await response.json();
-      setTokens(data.access_token, data.refresh_token);
+      accessToken = data.access_token;  // Store in memory only
       return true;
     }
     // Log failed refresh for debugging
@@ -188,13 +183,18 @@ export const authApi = {
 
   /**
    * Login with email and password
+   * 
+   * Access token returned in body (stored in memory).
+   * Refresh token set as HttpOnly cookie by backend.
    */
   async login(data: LoginRequest): Promise<AuthTokens> {
     const tokens = await apiRequest<AuthTokens>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    setTokens(tokens.access_token, tokens.refresh_token);
+    // Store access token in memory only (XSS-safe)
+    // Refresh token is automatically set as HttpOnly cookie by backend
+    setAccessToken(tokens.access_token);
     return tokens;
   },
 

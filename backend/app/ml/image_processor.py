@@ -654,32 +654,61 @@ class AdvancedImageProcessor:
         return candlesticks
     
     def _estimate_candlesticks_simple(self, image: np.ndarray) -> List[Candlestick]:
-        """Fallback candlestick estimation"""
+        """
+        FALLBACK: Basic candlestick estimation when CV detection fails.
+        
+        WARNING: This method creates ESTIMATION-BASED candlesticks from color 
+        analysis, NOT actual price data extraction. These should be treated 
+        with LOW confidence and used only when proper detection fails.
+        
+        IMPORTANT: 
+        - Confidence is set to 0.3 (30%) to indicate unreliable data
+        - Candlesticks are deterministic based on image colors (no randomness)
+        - Users should NOT make trading decisions based on this fallback data
+        
+        Returns:
+            List of estimated candlesticks with LOW confidence scores
+        """
         h, w = image.shape[:2]
         green_count, red_count = self._detect_colors_rgb(image)
         total = green_count + red_count + 1
         bullish_ratio = green_count / total
         
+        # Estimate number of candles (deterministic)
         estimated_candles = max(10, min(50, w // 15))
         candlesticks = []
         
-        # Use numpy for vectorized operations
-        indices = np.arange(estimated_candles)
-        base_prices = 50 + (indices / estimated_candles) * 30 * (1 if bullish_ratio > 0.5 else -1)
-        volatilities = 5 + np.abs(50 - base_prices) * 0.15
+        # Calculate trend direction from bullish ratio (deterministic)
+        trend_multiplier = 1 if bullish_ratio > 0.5 else -1
+        base_trend = (bullish_ratio - 0.5) * 2  # -1 to +1
         
+        # DETERMINISTIC price generation based on position in chart
+        # Uses alternating pattern weighted by bullish_ratio
         for i in range(estimated_candles):
-            is_bullish = (np.random.random() < bullish_ratio)
+            # Deterministic bullish assignment based on position and ratio
+            # This creates a pattern where bullish_ratio% of candles are bullish
+            # But in a deterministic, reproducible way
+            threshold = i / estimated_candles
+            is_bullish = threshold < bullish_ratio
             
-            high = base_prices[i] + volatilities[i]
-            low = base_prices[i] - volatilities[i]
+            # Occasionally alternate to create realistic patterns
+            # Still deterministic: every 3rd candle in the opposite direction
+            if i % 3 == 0:
+                is_bullish = not is_bullish
+            
+            # Generate deterministic prices based on position
+            base_price = 50 + (i / estimated_candles) * 20 * trend_multiplier
+            volatility = 3 + abs(i - estimated_candles / 2) * 0.1
+            
+            high = base_price + volatility
+            low = base_price - volatility
             
             if is_bullish:
-                open_p = low + volatilities[i] * 0.25
-                close_p = high - volatilities[i] * 0.25
+                open_p = low + volatility * 0.3
+                close_p = high - volatility * 0.3
             else:
-                open_p = high - volatilities[i] * 0.25
-                close_p = low + volatilities[i] * 0.25
+                open_p = high - volatility * 0.3
+                close_p = low + volatility * 0.3
             
             candlesticks.append(Candlestick(
                 index=i,
@@ -689,8 +718,15 @@ class AdvancedImageProcessor:
                 low_price=low,
                 close_price=close_p,
                 is_bullish=is_bullish,
-                confidence=0.5
+                # CRITICAL: Very low confidence to indicate this is estimated data
+                confidence=0.3  # 30% - clearly unreliable
             ))
+        
+        # Log warning about fallback usage
+        logger.warning(
+            "Using fallback candlestick estimation - data is NOT reliable for trading. "
+            f"Estimated {estimated_candles} candles with {bullish_ratio:.0%} bullish ratio."
+        )
         
         return candlesticks
     

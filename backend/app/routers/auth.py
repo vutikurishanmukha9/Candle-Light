@@ -4,8 +4,9 @@ Authentication Router
 Handles user registration, login, and token management.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, Cookie
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
 
 from app.database import get_db
 from app.schemas.auth import (
@@ -51,23 +52,47 @@ async def register(
         )
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login")
 async def login(
     request: LoginRequest,
+    response: Response,
     db: AsyncSession = Depends(get_db)
 ):
     """
     Login with email and password.
     
-    Returns access and refresh tokens.
+    Returns:
+    - access_token in response body (store in React state only - NOT localStorage)
+    - refresh_token in HttpOnly cookie (XSS-safe)
     """
+    from fastapi.responses import JSONResponse
+    
     try:
         auth_service = AuthService(db)
         tokens = await auth_service.login(
             email=request.email,
             password=request.password
         )
-        return tokens
+        
+        # Set refresh token as HttpOnly cookie (secure from XSS)
+        response.set_cookie(
+            key="refresh_token",
+            value=tokens["refresh_token"],
+            httponly=True,           # JavaScript cannot access
+            secure=True,             # HTTPS only in production
+            samesite="lax",          # CSRF protection
+            max_age=60 * 60 * 24 * 7,  # 7 days
+            path="/auth"             # Only sent to /auth endpoints
+        )
+        
+        # Return access token in body (frontend stores in memory only)
+        return {
+            "access_token": tokens["access_token"],
+            "token_type": tokens["token_type"],
+            "expires_in": tokens["expires_in"],
+            # Note: refresh_token is in HttpOnly cookie, not body
+        }
+        
     except AuthenticationError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -76,19 +101,57 @@ async def login(
         )
 
 
-@router.post("/refresh", response_model=Token)
+@router.post("/refresh")
 async def refresh_token(
-    request: RefreshTokenRequest,
-    db: AsyncSession = Depends(get_db)
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    refresh_token: Optional[str] = Cookie(None),
+    request_body: Optional[RefreshTokenRequest] = None
 ):
     """
     Refresh access token using refresh token.
+    
+    Reads refresh token from:
+    1. HttpOnly cookie (preferred, XSS-safe)
+    2. Request body (fallback for mobile apps)
+    
+    Returns new access token in body, new refresh token in cookie.
     """
+    # Get refresh token from cookie or body
+    token = refresh_token or (request_body.refresh_token if request_body else None)
+    
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token required (in cookie or body)",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     try:
         auth_service = AuthService(db)
-        tokens = await auth_service.refresh_tokens(request.refresh_token)
-        return tokens
+        tokens = await auth_service.refresh_tokens(token)
+        
+        # Update HttpOnly cookie with new refresh token
+        response.set_cookie(
+            key="refresh_token",
+            value=tokens["refresh_token"],
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            max_age=60 * 60 * 24 * 7,
+            path="/auth"
+        )
+        
+        # Return new access token in body
+        return {
+            "access_token": tokens["access_token"],
+            "token_type": tokens["token_type"],
+            "expires_in": tokens["expires_in"],
+        }
+        
     except AuthenticationError as e:
+        # Clear invalid refresh token cookie
+        response.delete_cookie(key="refresh_token", path="/auth")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=e.message,
