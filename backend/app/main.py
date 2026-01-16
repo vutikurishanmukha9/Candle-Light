@@ -72,6 +72,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+print(f"[DEBUG] Loaded CORS Origins: {settings.cors_origins}")
 
 # Add rate limiting middleware
 app.add_middleware(

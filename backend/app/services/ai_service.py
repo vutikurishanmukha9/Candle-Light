@@ -300,7 +300,7 @@ The overall bias is bullish, but wait for confirmation before entering. A break 
     def _get_system_prompt(self) -> str:
         """Get the system prompt for AI analysis."""
         return """You are an expert technical analyst specializing in candlestick chart pattern recognition. 
-Your task is to analyze trading charts and provide detailed, actionable insights.
+Your task is to analyze trading charts and provide detailed, actionable insights including WHEN to enter the market.
 
 You must respond in valid JSON format with the following structure:
 {
@@ -314,12 +314,29 @@ You must respond in valid JSON format with the following structure:
     ],
     "market_bias": "bullish" | "bearish" | "neutral",
     "confidence": 0-100,
+    "entry_timing": {
+        "signal": "wait" | "prepare" | "ready" | "now",
+        "timing_description": "Clear explanation of when to enter",
+        "conditions": ["List of conditions that need to be met before entry"],
+        "entry_price_zone": "Price range or level for entry",
+        "stop_loss": "Where to place stop loss",
+        "take_profit": "Target price levels",
+        "risk_reward": "Estimated risk:reward ratio (e.g., 1:2)",
+        "timeframe": "Expected timeframe for the trade"
+    },
     "reasoning": "Detailed markdown-formatted analysis explaining your findings"
 }
 
+ENTRY TIMING SIGNALS:
+- "wait": No clear setup yet, pattern is forming but not confirmed
+- "prepare": Setup is developing, be ready to enter soon
+- "ready": Conditions are aligning, wait for final confirmation
+- "now": Strong signal, entry conditions are met
+
 Be specific about pattern locations and provide actionable insights.
 Always include key support/resistance levels when visible.
-Format the reasoning with headers and bullet points for readability."""
+Provide realistic stop loss and take profit levels based on chart structure.
+Format the reasoning with sections: **Summary**, **Pattern Details**, **Entry Strategy**, **Key Levels**, **Recommendation**."""
 
     def _get_analysis_prompt(self) -> str:
         """Get the user prompt for chart analysis."""
@@ -328,13 +345,22 @@ Format the reasoning with headers and bullet points for readability."""
 1. All visible candlestick patterns (e.g., Hammer, Doji, Engulfing, Double Top/Bottom, Head and Shoulders)
 2. The overall market bias (bullish, bearish, or neutral)
 3. Your confidence level (0-100) in the analysis
-4. Detailed reasoning explaining your analysis
+4. ENTRY TIMING: When should a trader enter the market based on this chart?
+5. Detailed reasoning explaining your analysis
+
+For ENTRY TIMING, consider:
+- Is the pattern complete or still forming?
+- Are there confirmation signals (volume, follow-through candles)?
+- What conditions need to be met before entry?
+- Where should stop loss and take profit be placed?
+- What is the risk:reward ratio for this trade?
 
 Consider:
 - Recent price action and trend direction
 - Key support and resistance levels
 - Volume patterns if visible
 - Any divergences or confirmations
+- Candle close confirmations
 
 Respond with a JSON object following the specified format."""
 

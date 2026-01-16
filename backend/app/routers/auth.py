@@ -77,7 +77,7 @@ async def login(
         # Set refresh token as HttpOnly cookie (secure from XSS)
         response.set_cookie(
             key="refresh_token",
-            value=tokens["refresh_token"],
+            value=tokens.refresh_token,
             httponly=True,           # JavaScript cannot access
             secure=True,             # HTTPS only in production
             samesite="lax",          # CSRF protection
@@ -87,9 +87,9 @@ async def login(
         
         # Return access token in body (frontend stores in memory only)
         return {
-            "access_token": tokens["access_token"],
-            "token_type": tokens["token_type"],
-            "expires_in": tokens["expires_in"],
+            "access_token": tokens.access_token,
+            "token_type": tokens.token_type,
+            "expires_in": tokens.expires_in,
             # Note: refresh_token is in HttpOnly cookie, not body
         }
         

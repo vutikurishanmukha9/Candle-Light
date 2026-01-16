@@ -1,32 +1,15 @@
 import { useState, useCallback, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import {
-  TrendingUp,
-  LayoutDashboard,
-  Upload,
-  History,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-  LogIn,
-} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Sparkles, ImagePlus, Trash2, Save, RotateCcw, Target, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UploadDropzone } from "@/components/UploadDropzone";
 import { AnalysisCard } from "@/components/AnalysisCard";
 import { AnalysisLoadingSkeleton } from "@/components/LoadingSkeleton";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { analysisApi, AnalysisResult, ApiError } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
-
-const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", active: true },
-  { icon: Upload, label: "Upload", href: "/dashboard" },
-  { icon: History, label: "History", href: "/history" },
-  { icon: Settings, label: "Settings", href: "/settings" },
-];
 
 // Convert API result to component format
 function formatAnalysisResult(apiResult: AnalysisResult, imageUrl: string) {
@@ -40,32 +23,36 @@ function formatAnalysisResult(apiResult: AnalysisResult, imageUrl: string) {
     confidence: apiResult.confidence,
     reasoning: apiResult.reasoning || '',
     timestamp: new Date(apiResult.created_at),
+    entryTiming: apiResult.entry_timing ? {
+      signal: apiResult.entry_timing.signal as 'wait' | 'prepare' | 'ready' | 'now',
+      timing_description: apiResult.entry_timing.timing_description,
+      conditions: apiResult.entry_timing.conditions,
+      entry_price_zone: apiResult.entry_timing.entry_price_zone,
+      stop_loss: apiResult.entry_timing.stop_loss,
+      take_profit: apiResult.entry_timing.take_profit,
+      risk_reward: apiResult.entry_timing.risk_reward,
+      timeframe: apiResult.entry_timing.timeframe,
+    } : undefined,
   };
 }
 
 export default function Dashboard() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<ReturnType<typeof formatAnalysisResult> | null>(null);
   const [analysisId, setAnalysisId] = useState<string | null>(null);
 
-  const { user, isLoggedIn, logout, isLoading } = useAuth();
+  const { user, isLoggedIn } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
   // MEMORY MANAGEMENT: Cleanup blob URLs to prevent memory leaks
-  // Revoke the previous URL when file changes or component unmounts
   useEffect(() => {
     if (selectedFile) {
       const url = URL.createObjectURL(selectedFile);
       setPreviewUrl(url);
-
-      // Cleanup: revoke the URL when file changes or component unmounts
-      return () => {
-        URL.revokeObjectURL(url);
-      };
+      return () => URL.revokeObjectURL(url);
     } else {
       setPreviewUrl(null);
     }
@@ -80,7 +67,6 @@ export default function Dashboard() {
   const handleAnalyze = useCallback(async () => {
     if (!selectedFile) return;
 
-    // Check if user is logged in
     if (!isLoggedIn) {
       toast({
         title: "Login Required",
@@ -92,11 +78,7 @@ export default function Dashboard() {
     setIsAnalyzing(true);
 
     try {
-      // Call the real backend API
       const response = await analysisApi.uploadChart(selectedFile);
-
-      // Use the previewUrl from state (managed by useEffect with cleanup)
-      // This prevents memory leaks from orphaned blob URLs
       setResult(formatAnalysisResult(response.analysis, previewUrl || ''));
       setAnalysisId(response.analysis.id);
 
@@ -106,7 +88,6 @@ export default function Dashboard() {
       });
     } catch (error) {
       console.error('Analysis failed:', error);
-
       if (error instanceof ApiError) {
         if (error.status === 401) {
           toast({
@@ -131,7 +112,7 @@ export default function Dashboard() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [selectedFile, isLoggedIn, toast]);
+  }, [selectedFile, isLoggedIn, toast, previewUrl]);
 
   const handleNewUpload = () => {
     setSelectedFile(null);
@@ -149,174 +130,165 @@ export default function Dashboard() {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      toast({
-        title: "Logged Out",
-        description: "See you next time!",
-      });
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 w-64 bg-sidebar border-r border-sidebar-border transform transition-transform duration-300 lg:transform-none",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        )}
-      >
-        <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="p-6 border-b border-sidebar-border">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-primary-foreground" />
-              </div>
-              <span className="font-semibold text-sidebar-foreground">Candle-Light</span>
-            </Link>
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.label}
-                to={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
-                  item.active
-                    ? "bg-sidebar-accent text-sidebar-primary"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-                )}
-              >
-                <item.icon className="w-5 h-5" />
-                <span className="font-medium">{item.label}</span>
-              </Link>
-            ))}
-          </nav>
-
-          {/* User section */}
-          <div className="p-4 border-t border-sidebar-border">
-            {isLoggedIn ? (
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
-              >
-                <LogOut className="w-5 h-5" />
-                <span className="font-medium">Sign Out</span>
-              </button>
-            ) : (
-              <Link
-                to="/"
-                className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
-              >
-                <LogIn className="w-5 h-5" />
-                <span className="font-medium">Sign In</span>
-              </Link>
-            )}
-          </div>
-        </div>
-      </aside>
-
-      {/* Main content */}
-      <main className="flex-1 min-w-0">
-        {/* Header */}
-        <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border">
-          <div className="flex items-center justify-between px-4 lg:px-8 h-16">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden p-2 hover:bg-secondary rounded-lg transition-colors"
-              >
-                {sidebarOpen ? (
-                  <X className="w-5 h-5" />
-                ) : (
-                  <Menu className="w-5 h-5" />
-                )}
-              </button>
-              <h1 className="text-xl font-semibold">Dashboard</h1>
-            </div>
-            <div className="flex items-center gap-3">
-              <ThemeToggle />
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                <span className="text-sm font-medium text-primary">
-                  {user?.full_name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
-                </span>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* Content */}
-        <div className="p-4 lg:p-8">
-          <div className="max-w-4xl mx-auto">
-            {!result && !isAnalyzing && (
+    <AppLayout
+      title={`Welcome back${user?.full_name ? `, ${user.full_name.split(' ')[0]}` : ''}!`}
+      subtitle="Upload a candlestick chart to get instant AI-powered analysis"
+    >
+      <div className="grid gap-6 lg:gap-8">
+        {/* Upload Section */}
+        <section className="animate-fade-up">
+          <div className="glass-card p-6 lg:p-8">
+            {!selectedFile && !result ? (
+              // Upload dropzone
               <div className="space-y-6">
-                <div className="text-center mb-8">
-                  <h2 className="text-2xl font-bold mb-2">Upload Your Chart</h2>
-                  <p className="text-muted-foreground">
-                    Drop a candlestick chart image to get AI-powered analysis
-                  </p>
-                  {!isLoggedIn && (
-                    <p className="text-sm text-amber-500 mt-2">
-                      Demo mode active - login for full features
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
+                    <ImagePlus className="h-5 w-5 text-primary-foreground" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold">Upload Chart</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Drag and drop or click to upload
                     </p>
-                  )}
+                  </div>
                 </div>
-                <div className="glass-card p-6">
-                  <UploadDropzone
-                    onFileSelect={handleFileSelect}
-                    onAnalyze={handleAnalyze}
-                    isAnalyzing={isAnalyzing}
-                  />
-                </div>
+                <UploadDropzone onFileSelect={handleFileSelect} />
               </div>
-            )}
-
-            {isAnalyzing && (
+            ) : (
+              // Preview and actions
               <div className="space-y-6">
-                <div className="text-center mb-8">
-                  <h2 className="text-2xl font-bold mb-2">Analyzing Chart...</h2>
-                  <p className="text-muted-foreground">
-                    Our AI is scanning for patterns and generating insights
-                  </p>
-                </div>
-                <AnalysisLoadingSkeleton />
-              </div>
-            )}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
+                      <Sparkles className="h-5 w-5 text-primary-foreground" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-semibold">
+                        {result ? "Analysis Results" : "Ready to Analyze"}
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        {result
+                          ? `${result.patterns.length} patterns detected`
+                          : selectedFile?.name}
+                      </p>
+                    </div>
+                  </div>
 
-            {result && !isAnalyzing && (
-              <div className="space-y-6">
-                <div className="text-center mb-8">
-                  <h2 className="text-2xl font-bold mb-2">Analysis Complete</h2>
-                  <p className="text-muted-foreground">
-                    Here's what our AI found in your chart
-                  </p>
+                  <div className="flex items-center gap-2">
+                    {result && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSave}
+                          className="gap-2"
+                        >
+                          <Save className="h-4 w-4" />
+                          <span className="hidden sm:inline">View History</span>
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleNewUpload}
+                      className="gap-2"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      <span className="hidden sm:inline">New Upload</span>
+                    </Button>
+                  </div>
                 </div>
-                <AnalysisCard
-                  result={result}
-                  onNewUpload={handleNewUpload}
-                  onSave={handleSave}
-                />
+
+                {/* Chart Preview */}
+                {previewUrl && !result && (
+                  <div className="relative rounded-xl overflow-hidden border border-border bg-muted/30">
+                    <img
+                      src={previewUrl}
+                      alt="Chart preview"
+                      className="w-full h-auto max-h-[400px] object-contain"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
+                    <div className="absolute bottom-4 left-4 right-4 flex justify-center">
+                      <Button
+                        onClick={handleAnalyze}
+                        disabled={isAnalyzing}
+                        className="gradient-primary glow-primary gap-2 h-12 px-8 text-base font-medium"
+                      >
+                        {isAnalyzing ? (
+                          <>
+                            <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                            Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-5 w-5" />
+                            Analyze Chart
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Loading State */}
+                {isAnalyzing && <AnalysisLoadingSkeleton />}
+
+                {/* Results */}
+                {result && !isAnalyzing && (
+                  <div className="animate-fade-up">
+                    <AnalysisCard analysis={result} />
+                  </div>
+                )}
               </div>
             )}
           </div>
-        </div>
-      </main>
-    </div>
+        </section>
+
+        {/* Quick Stats (when no analysis is active) */}
+        {!selectedFile && !result && (
+          <section className="animate-fade-up animation-delay-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[
+                {
+                  title: "Pattern Detection",
+                  description: "AI identifies candlestick patterns instantly",
+                  icon: Target,
+                },
+                {
+                  title: "Market Bias",
+                  description: "Get bullish, bearish, or neutral predictions",
+                  icon: TrendingUp,
+                },
+                {
+                  title: "Confidence Score",
+                  description: "Know how reliable each analysis is",
+                  icon: Sparkles,
+                },
+              ].map((feature, i) => {
+                const Icon = feature.icon;
+                return (
+                  <div
+                    key={i}
+                    className="glass-card p-5 hover:border-primary/30 transition-all group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
+                      <Icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <h3 className="font-semibold mb-1 group-hover:text-primary transition-colors">
+                      {feature.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {feature.description}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+      </div>
+    </AppLayout>
   );
 }
-

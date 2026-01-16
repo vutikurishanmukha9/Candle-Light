@@ -1,23 +1,16 @@
 import { useCallback, useState } from "react";
-import { Upload, Image, X, AlertCircle } from "lucide-react";
+import { Upload, Image, X, AlertCircle, CloudUpload } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 
 interface UploadDropzoneProps {
   onFileSelect: (file: File) => void;
-  onAnalyze: () => void;
-  isAnalyzing?: boolean;
   className?: string;
 }
 
 export function UploadDropzone({
   onFileSelect,
-  onAnalyze,
-  isAnalyzing = false,
   className,
 }: UploadDropzoneProps) {
-  const [preview, setPreview] = useState<string | null>(null);
-  const [fileName, setFileName] = useState<string>("");
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string>("");
 
@@ -38,13 +31,7 @@ export function UploadDropzone({
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setPreview(e.target?.result as string);
-        setFileName(file.name);
-        onFileSelect(file);
-      };
-      reader.readAsDataURL(file);
+      onFileSelect(file);
     },
     [onFileSelect]
   );
@@ -77,93 +64,76 @@ export function UploadDropzone({
     [handleFile]
   );
 
-  const clearPreview = () => {
-    setPreview(null);
-    setFileName("");
-    setError("");
-  };
-
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn("space-y-3", className)}>
       <div
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         className={cn(
-          "relative border-2 border-dashed rounded-xl transition-all duration-300",
+          "relative border-2 border-dashed rounded-2xl transition-all duration-300 cursor-pointer group",
+          "min-h-[200px] sm:min-h-[280px] flex items-center justify-center",
           isDragging
             ? "border-primary bg-primary/5 scale-[1.02]"
-            : "border-border hover:border-primary/50",
-          preview ? "p-4" : "p-8"
+            : "border-border/60 hover:border-primary/50 hover:bg-muted/30"
         )}
       >
-        {preview ? (
-          <div className="relative">
-            <img
-              src={preview}
-              alt="Chart preview"
-              className="w-full max-h-64 object-contain rounded-lg"
+        <label className="flex flex-col items-center gap-4 sm:gap-6 cursor-pointer p-6 sm:p-8 w-full">
+          {/* Upload Icon */}
+          <div
+            className={cn(
+              "w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center transition-all duration-300",
+              isDragging
+                ? "bg-primary/20 scale-110"
+                : "bg-muted group-hover:bg-primary/10 group-hover:scale-105"
+            )}
+          >
+            <CloudUpload
+              className={cn(
+                "w-8 h-8 sm:w-10 sm:h-10 transition-colors",
+                isDragging
+                  ? "text-primary"
+                  : "text-muted-foreground group-hover:text-primary"
+              )}
             />
-            <button
-              onClick={clearPreview}
-              className="absolute top-2 right-2 p-1.5 bg-background/80 hover:bg-background rounded-full transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-              <Image className="w-4 h-4" />
-              <span className="truncate">{fileName}</span>
-            </div>
           </div>
-        ) : (
-          <label className="flex flex-col items-center gap-4 cursor-pointer">
-            <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center">
-              <Upload className="w-7 h-7 text-primary" />
-            </div>
-            <div className="text-center">
-              <p className="text-foreground font-medium">
-                Drop your chart image here
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                or click to browse • PNG, JPG, WebP up to 10MB
-              </p>
-            </div>
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={handleInputChange}
-              className="hidden"
-            />
-          </label>
+
+          {/* Text */}
+          <div className="text-center space-y-2">
+            <p className="text-lg sm:text-xl font-medium text-foreground">
+              {isDragging ? "Drop your chart here" : "Drop your chart image here"}
+            </p>
+            <p className="text-sm sm:text-base text-muted-foreground">
+              or <span className="text-primary font-medium">click to browse</span>
+            </p>
+            <p className="text-xs sm:text-sm text-muted-foreground/70 pt-2">
+              PNG, JPG, WebP up to 10MB
+            </p>
+          </div>
+
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handleInputChange}
+            className="hidden"
+          />
+        </label>
+
+        {/* Animated border gradient on drag */}
+        {isDragging && (
+          <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-primary/5 to-primary/20 animate-shimmer" />
+          </div>
         )}
       </div>
 
+      {/* Error message */}
       {error && (
-        <div className="flex items-center gap-2 text-sm text-bearish">
-          <AlertCircle className="w-4 h-4" />
-          {error}
+        <div className="flex items-center gap-2 text-sm text-destructive animate-fade-in">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
-
-      <Button
-        variant="hero"
-        size="lg"
-        onClick={onAnalyze}
-        disabled={!preview || isAnalyzing}
-        className="w-full"
-      >
-        {isAnalyzing ? (
-          <>
-            <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-            Analyzing Chart...
-          </>
-        ) : (
-          <>
-            <Upload className="w-4 h-4" />
-            Analyze Chart
-          </>
-        )}
-      </Button>
     </div>
   );
 }

@@ -28,6 +28,42 @@ class PatternResult(BaseModel):
     )
 
 
+class EntryTiming(BaseModel):
+    """Schema for market entry timing prediction."""
+    signal: Literal["wait", "prepare", "ready", "now"] = Field(
+        "wait",
+        description="Entry signal: wait, prepare, ready, or now"
+    )
+    timing_description: Optional[str] = Field(
+        None,
+        description="Clear explanation of when to enter"
+    )
+    conditions: List[str] = Field(
+        default_factory=list,
+        description="Conditions that need to be met before entry"
+    )
+    entry_price_zone: Optional[str] = Field(
+        None,
+        description="Price range or level for entry"
+    )
+    stop_loss: Optional[str] = Field(
+        None,
+        description="Where to place stop loss"
+    )
+    take_profit: Optional[str] = Field(
+        None,
+        description="Target price levels"
+    )
+    risk_reward: Optional[str] = Field(
+        None,
+        description="Estimated risk:reward ratio"
+    )
+    timeframe: Optional[str] = Field(
+        None,
+        description="Expected timeframe for the trade"
+    )
+
+
 class AnalysisCreate(BaseModel):
     """Schema for creating an analysis (internal use)."""
     image_filename: str
@@ -44,6 +80,7 @@ class AnalysisResult(BaseModel):
     market_bias: Literal["bullish", "bearish", "neutral"] = "neutral"
     confidence: int = Field(0, ge=0, le=100)
     reasoning: Optional[str] = None
+    entry_timing: Optional[EntryTiming] = None
     ai_provider: Optional[str] = None
     ai_model: Optional[str] = None
     processing_time_ms: Optional[int] = None

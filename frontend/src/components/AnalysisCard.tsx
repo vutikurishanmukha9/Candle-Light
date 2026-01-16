@@ -1,9 +1,10 @@
-import { TrendingUp, TrendingDown, Minus, RotateCcw, Save, Calendar } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Calendar, Sparkles, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { PatternBadge } from "@/components/PatternBadge";
 import { ConfidenceBar } from "@/components/ConfidenceBar";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
+import { AIAnalysisDisplay } from "@/components/AIAnalysisDisplay";
+import { EntryTimingDisplay, EntryTimingData } from "@/components/EntryTimingDisplay";
 
 interface AnalysisResult {
   imageUrl: string;
@@ -12,32 +13,43 @@ interface AnalysisResult {
   confidence: number;
   reasoning: string;
   timestamp: Date;
+  entryTiming?: EntryTimingData;
 }
 
 interface AnalysisCardProps {
-  result: AnalysisResult;
-  onNewUpload: () => void;
-  onSave: () => void;
+  analysis: AnalysisResult;
   className?: string;
 }
 
-export function AnalysisCard({
-  result,
-  onNewUpload,
-  onSave,
-  className,
-}: AnalysisCardProps) {
+export function AnalysisCard({ analysis, className }: AnalysisCardProps) {
   const BiasIcon = {
     bullish: TrendingUp,
     bearish: TrendingDown,
     neutral: Minus,
-  }[result.marketBias];
+  }[analysis.marketBias];
 
-  const biasColors = {
-    bullish: "text-bullish",
-    bearish: "text-bearish",
-    neutral: "text-neutral",
+  const biasStyles = {
+    bullish: {
+      bg: "bg-success/10",
+      text: "text-success",
+      border: "border-success/20",
+      glow: "shadow-success/20",
+    },
+    bearish: {
+      bg: "bg-destructive/10",
+      text: "text-destructive",
+      border: "border-destructive/20",
+      glow: "shadow-destructive/20",
+    },
+    neutral: {
+      bg: "bg-muted",
+      text: "text-muted-foreground",
+      border: "border-border",
+      glow: "",
+    },
   };
+
+  const styles = biasStyles[analysis.marketBias];
 
   const biasLabels = {
     bullish: "Bullish",
@@ -48,84 +60,84 @@ export function AnalysisCard({
   return (
     <div className={cn("glass-card overflow-hidden", className)}>
       {/* Image Preview */}
-      <div className="relative aspect-video bg-secondary/50">
+      <div className="relative aspect-video bg-muted/30 overflow-hidden">
         <img
-          src={result.imageUrl}
+          src={analysis.imageUrl}
           alt="Analyzed chart"
           className="w-full h-full object-contain"
         />
-        <div className="absolute top-3 right-3 flex items-center gap-2 px-3 py-1.5 bg-background/80 backdrop-blur-sm rounded-full">
+        <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent opacity-60" />
+
+        {/* Timestamp Badge */}
+        <div className="absolute top-3 right-3 flex items-center gap-1.5 px-3 py-1.5 bg-card/90 backdrop-blur-sm rounded-full border border-border/50">
           <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">
-            {result.timestamp.toLocaleDateString()}
+          <span className="text-xs font-medium text-muted-foreground">
+            {analysis.timestamp.toLocaleDateString()}
           </span>
+        </div>
+
+        {/* Market Bias Badge - Floating */}
+        <div className="absolute bottom-4 left-4">
+          <div
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl border backdrop-blur-sm",
+              "shadow-lg",
+              styles.bg,
+              styles.border
+            )}
+          >
+            <BiasIcon className={cn("w-5 h-5", styles.text)} />
+            <span className={cn("font-semibold", styles.text)}>
+              {biasLabels[analysis.marketBias]}
+            </span>
+          </div>
         </div>
       </div>
 
       <div className="p-6 space-y-6">
-        {/* Market Bias */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className={cn(
-                "w-12 h-12 rounded-xl flex items-center justify-center",
-                result.marketBias === "bullish" && "bg-bullish/20",
-                result.marketBias === "bearish" && "bg-bearish/20",
-                result.marketBias === "neutral" && "bg-neutral/20"
-              )}
-            >
-              <BiasIcon className={cn("w-6 h-6", biasColors[result.marketBias])} />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Market Bias</p>
-              <p className={cn("text-xl font-semibold", biasColors[result.marketBias])}>
-                {biasLabels[result.marketBias]}
-              </p>
-            </div>
+        {/* Confidence Section */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Target className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium">Confidence Score</span>
           </div>
+          <ConfidenceBar value={analysis.confidence} />
         </div>
-
-        {/* Confidence */}
-        <ConfidenceBar value={result.confidence} label="Confidence Score" />
 
         {/* Detected Patterns */}
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">Detected Patterns</p>
-          <div className="flex flex-wrap gap-2">
-            {result.patterns.map((pattern, idx) => (
-              <PatternBadge
-                key={idx}
-                pattern={pattern.name}
-                bias={pattern.bias}
-              />
-            ))}
+        {analysis.patterns.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">Detected Patterns</span>
+              <span className="text-xs text-muted-foreground ml-auto">
+                {analysis.patterns.length} found
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {analysis.patterns.map((pattern, idx) => (
+                <PatternBadge
+                  key={idx}
+                  pattern={pattern.name}
+                  bias={pattern.bias}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* AI Reasoning */}
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">AI Analysis</p>
-          <div className="p-4 bg-secondary/50 rounded-lg">
-            <p className="text-sm leading-relaxed text-foreground/90">
-              {result.reasoning}
-            </p>
-          </div>
-        </div>
+        {/* Entry Timing - When to Enter */}
+        {analysis.entryTiming && (
+          <EntryTimingDisplay timing={analysis.entryTiming} />
+        )}
+
+        {/* AI Reasoning - Premium Display */}
+        {analysis.reasoning && (
+          <AIAnalysisDisplay reasoning={analysis.reasoning} />
+        )}
 
         {/* Disclaimer */}
         <DisclaimerBanner />
-
-        {/* Actions */}
-        <div className="flex gap-3">
-          <Button variant="outline" onClick={onNewUpload} className="flex-1">
-            <RotateCcw className="w-4 h-4" />
-            New Analysis
-          </Button>
-          <Button variant="default" onClick={onSave} className="flex-1">
-            <Save className="w-4 h-4" />
-            Save Result
-          </Button>
-        </div>
       </div>
     </div>
   );

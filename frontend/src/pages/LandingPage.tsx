@@ -85,7 +85,15 @@ export default function LandingPage() {
               </div>
               <span className="font-semibold">Candle-Light</span>
             </div>
-            <ThemeToggle />
+            <div className="flex items-center gap-4">
+              <Link to="/login" className="text-sm font-medium hover:text-primary transition-colors">
+                Sign In
+              </Link>
+              <Link to="/register">
+                <Button size="sm" variant="default">Get Started</Button>
+              </Link>
+              <ThemeToggle />
+            </div>
           </div>
         </header>
 
