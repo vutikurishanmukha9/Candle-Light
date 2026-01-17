@@ -34,16 +34,25 @@ class Base(DeclarativeBase):
 def create_engine():
     """Create database engine based on configuration."""
     connect_args = {}
+    database_url = settings.database_url
     
     # SQLite specific settings
     if settings.is_sqlite:
         connect_args["check_same_thread"] = False
     
+    # PostgreSQL with asyncpg - handle SSL properly
+    if settings.is_postgres:
+        # asyncpg doesn't support sslmode, convert to ssl parameter
+        if "sslmode=" in database_url:
+            database_url = database_url.replace("?sslmode=require", "").replace("&sslmode=require", "")
+        # Enable SSL for asyncpg
+        connect_args["ssl"] = "require"
+    
     engine = create_async_engine(
-        settings.database_url,
+        database_url,
         echo=settings.debug,
         future=True,
-        connect_args=connect_args if settings.is_sqlite else {},
+        connect_args=connect_args,
         # PostgreSQL specific - connection pool settings
         pool_pre_ping=True if settings.is_postgres else False,
     )
