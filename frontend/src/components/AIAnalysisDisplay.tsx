@@ -120,11 +120,46 @@ function parseAnalysisText(text: string): ParsedSection[] {
     return sections;
 }
 
+// Clean markdown artifacts from text for app-native display
+function cleanMarkdown(text: string): string {
+    let cleaned = text
+        // Remove bold+italic ***text***
+        .replace(/\*\*\*([^*]+)\*\*\*/g, '$1')
+        // Remove bold **text**
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        // Remove remaining ** (unclosed bold)
+        .replace(/\*\*/g, '')
+        // Remove italic *text* (with content)
+        .replace(/\*([^*\s][^*]*)\*/g, '$1')
+        // Remove code `text`
+        .replace(/`([^`]+)`/g, '$1')
+        // Remove underscore _text_
+        .replace(/_([^_]+)_/g, '$1')
+        // Remove strikethrough ~text~
+        .replace(/~([^~]+)~/g, '$1')
+        // Remove headers
+        .replace(/^\s*#{1,6}\s+/gm, '')
+        // Remove links [text](url) -> text
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        // Remove any remaining standalone asterisks at end of lines
+        .replace(/\*+\s*$/gm, '')
+        // Remove any remaining asterisks at start of lines (not bullets)
+        .replace(/^\s*\*+\s*(?=[A-Z])/gm, '')
+        // Final cleanup: remove any remaining lone asterisks
+        .replace(/\s*\*\s*/g, ' ')
+        .trim();
+
+    return cleaned;
+}
+
 // Component to render text with technical term tooltips
 function TextWithTooltips({ text }: { text: string }) {
+    // Clean markdown first
+    const cleanedText = cleanMarkdown(text);
+
     // Find and highlight technical terms
     const elements: React.ReactNode[] = [];
-    let remainingText = text;
+    let remainingText = cleanedText;
     let keyIndex = 0;
 
     // Sort terms by length (longest first) to avoid partial matches
@@ -293,83 +328,164 @@ export function AIAnalysisDisplay({ reasoning, className }: AIAnalysisDisplayPro
                     // Use parsed title if available, otherwise use config title
                     const displayTitle = section.title || config.title;
 
-                    // Render content with proper line breaks and markdown formatting
+                    // Render content with clean, app-native styling (no raw LLM text)
                     const renderContent = (content: string) => {
                         // Split into lines and filter empty ones
                         const lines = content.split('\n').filter(line => line.trim());
 
-                        return lines.map((line, lineIdx) => {
+                        // Clean up markdown artifacts for app-native display
+                        const cleanText = (text: string): string => {
+                            return text
+                                .replace(/\*\*\*([^*]+)\*\*\*/g, '$1')   // Remove bold+italic
+                                .replace(/\*\*([^*]+)\*\*/g, '$1')      // Remove bold
+                                .replace(/\*\*/g, '')                    // Remove unclosed bold
+                                .replace(/\*([^*]+)\*/g, '$1')          // Remove italic
+                                .replace(/`([^`]+)`/g, '$1')            // Remove code
+                                .replace(/\*+\s*$/g, '')                 // Remove trailing asterisks
+                                .replace(/^\s*[-•*]\s*/, '')             // Remove bullet markers
+                                .replace(/^\s*\d+\.\s*/, '')             // Remove number markers
+                                .replace(/\s*\*\s*/g, ' ')               // Remove lone asterisks
+                                .trim();
+                        };
+
+                        // Group consecutive items of same type for better layout
+                        const elements: React.ReactNode[] = [];
+                        let currentList: { type: 'bullet' | 'number', items: string[] } | null = null;
+
+                        const flushList = () => {
+                            if (currentList && currentList.items.length > 0) {
+                                if (currentList.type === 'bullet') {
+                                    elements.push(
+                                        <div key={`list-${elements.length}`} className="rounded-xl bg-gradient-to-br from-muted/50 to-muted/20 p-4 my-3 border border-border/30">
+                                            <div className="space-y-2">
+                                                {currentList.items.map((item, i) => (
+                                                    <div key={i} className="flex gap-3 items-start group">
+                                                        <div className={cn(
+                                                            "w-2 h-2 rounded-full mt-1.5 shrink-0 ring-2 ring-offset-1 ring-offset-background",
+                                                            config.iconClass.replace('text-', 'bg-'),
+                                                            config.iconClass.replace('text-', 'ring-')
+                                                        )} />
+                                                        <span className="text-foreground/90 leading-relaxed flex-1">
+                                                            <TextWithTooltips text={cleanText(item)} />
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                } else {
+                                    elements.push(
+                                        <div key={`list-${elements.length}`} className="space-y-2 my-2">
+                                            {currentList.items.map((item, i) => (
+                                                <div key={i} className="flex gap-3 items-start">
+                                                    <span className={cn(
+                                                        "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
+                                                        "bg-gradient-to-br from-primary/20 to-primary/10 text-primary"
+                                                    )}>
+                                                        {i + 1}
+                                                    </span>
+                                                    <span className="flex-1 pt-0.5 text-foreground/90">
+                                                        <TextWithTooltips text={cleanText(item)} />
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                }
+                                currentList = null;
+                            }
+                        };
+
+                        for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+                            const line = lines[lineIdx];
                             const trimmedLine = line.trim();
 
                             // Skip empty lines
-                            if (!trimmedLine) return null;
+                            if (!trimmedLine) continue;
+
+                            // Skip horizontal dividers and markdown artifacts
+                            if (trimmedLine === '---' || trimmedLine.startsWith('===')) continue;
 
                             // Check for bullet points
-                            if (trimmedLine.startsWith('-') || trimmedLine.startsWith('*')) {
-                                const bulletContent = trimmedLine.replace(/^[-*]\s*/, '');
-                                return (
-                                    <div key={lineIdx} className="flex gap-2 py-1">
-                                        <span className="text-muted-foreground">•</span>
-                                        <span><TextWithTooltips text={bulletContent} /></span>
-                                    </div>
-                                );
+                            if (trimmedLine.startsWith('-') || trimmedLine.startsWith('*') || trimmedLine.startsWith('•')) {
+                                const bulletContent = trimmedLine.replace(/^[-*•]\s*/, '');
+                                if (!currentList || currentList.type !== 'bullet') {
+                                    flushList();
+                                    currentList = { type: 'bullet', items: [] };
+                                }
+                                currentList.items.push(bulletContent);
+                                continue;
                             }
 
                             // Check for numbered list items
                             const numMatch = trimmedLine.match(/^(\d+)\.\s*(.*)$/);
                             if (numMatch) {
-                                return (
-                                    <div key={lineIdx} className="flex gap-3 py-1">
+                                if (!currentList || currentList.type !== 'number') {
+                                    flushList();
+                                    currentList = { type: 'number', items: [] };
+                                }
+                                currentList.items.push(numMatch[2]);
+                                continue;
+                            }
+
+                            // Flush any pending list
+                            flushList();
+
+                            // Check for key-value pairs (Label: Value or **Label**: Value)
+                            const kvMatch = trimmedLine.match(/^(?:\*\*)?([^:*]+)(?:\*\*)?:\s*(.+)$/);
+                            if (kvMatch && kvMatch[1].length < 40) {
+                                elements.push(
+                                    <div key={lineIdx} className="flex flex-wrap gap-x-2 py-1.5 border-b border-border/30 last:border-0">
+                                        <span className="font-medium text-foreground/70 min-w-[100px]">
+                                            {cleanText(kvMatch[1])}
+                                        </span>
+                                        <span className="text-foreground flex-1">
+                                            <TextWithTooltips text={cleanText(kvMatch[2])} />
+                                        </span>
+                                    </div>
+                                );
+                                continue;
+                            }
+
+                            // Check for confidence calculations (show as special badge)
+                            const confMatch = trimmedLine.match(/=\s*(\d+)%?$/);
+                            if (confMatch && trimmedLine.toLowerCase().includes('confidence')) {
+                                const conf = parseInt(confMatch[1]);
+                                elements.push(
+                                    <div key={lineIdx} className="flex items-center gap-2 py-2 my-1">
+                                        <span className="text-muted-foreground text-xs">Confidence Score</span>
+                                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                                            <div
+                                                className={cn(
+                                                    "h-full rounded-full transition-all",
+                                                    conf >= 70 ? "bg-success" : conf >= 50 ? "bg-warning" : "bg-destructive"
+                                                )}
+                                                style={{ width: `${Math.min(conf, 100)}%` }}
+                                            />
+                                        </div>
                                         <span className={cn(
-                                            "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold",
-                                            config.bgClass.replace("/5", "/20"),
-                                            config.iconClass
+                                            "text-sm font-bold",
+                                            conf >= 70 ? "text-success" : conf >= 50 ? "text-warning" : "text-destructive"
                                         )}>
-                                            {numMatch[1]}
-                                        </span>
-                                        <span className="flex-1 pt-0.5">
-                                            <TextWithTooltips text={numMatch[2]} />
+                                            {conf}%
                                         </span>
                                     </div>
                                 );
+                                continue;
                             }
 
-                            // Check for bold labels (e.g., "**Label:** Value")
-                            const boldMatch = trimmedLine.match(/^\*\*([^*]+)\*\*[:\s]*(.*)/);
-                            if (boldMatch) {
-                                return (
-                                    <div key={lineIdx} className="py-1">
-                                        <span className="font-semibold"><TextWithTooltips text={boldMatch[1]} /></span>
-                                        {boldMatch[2] && <span className="text-foreground/80">: <TextWithTooltips text={boldMatch[2]} /></span>}
-                                    </div>
-                                );
-                            }
-
-                            // Check for bracket markers like [MET] or [PENDING]
-                            const bracketMatch = trimmedLine.match(/^\[([A-Z]+)\]\s*(.*)/);
-                            if (bracketMatch) {
-                                const status = bracketMatch[1];
-                                const isComplete = status === 'MET' || status === 'DONE' || status === 'YES';
-                                return (
-                                    <div key={lineIdx} className="flex gap-2 py-1">
-                                        <span className={cn(
-                                            "text-xs px-1.5 py-0.5 rounded font-medium",
-                                            isComplete ? "bg-success/20 text-success" : "bg-warning/20 text-warning"
-                                        )}>
-                                            {status}
-                                        </span>
-                                        <span><TextWithTooltips text={bracketMatch[2]} /></span>
-                                    </div>
-                                );
-                            }
-
-                            // Regular paragraph
-                            return (
-                                <p key={lineIdx} className="py-1">
-                                    <TextWithTooltips text={trimmedLine} />
+                            // Regular paragraph - clean and render
+                            elements.push(
+                                <p key={lineIdx} className="py-1 text-foreground/90 leading-relaxed">
+                                    <TextWithTooltips text={cleanText(trimmedLine)} />
                                 </p>
                             );
-                        });
+                        }
+
+                        // Don't forget to flush any remaining list
+                        flushList();
+
+                        return elements;
                     };
 
                     return (

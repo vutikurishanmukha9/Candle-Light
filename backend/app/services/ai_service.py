@@ -439,152 +439,131 @@ class AIService:
     
     async def _analyze_demo(self, image_path: str) -> AnalysisResult:
         """
-        Enhanced demo analysis with realistic patterns and timing.
+        Demo analysis with honest, conservative patterns and methodology.
+        Serves as an example of proper AI output format.
         """
         await asyncio.sleep(1.2)
         
+        # Conservative patterns with proper methodology including new features
         demo_patterns = [
             PatternResult(
-                name="Bullish Engulfing",
+                name="Higher Low in Uptrend",
                 type="bullish",
-                confidence=88,
-                description="Strong bullish reversal pattern where a large green candle completely engulfs the previous red candle, indicating a shift in momentum from sellers to buyers."
+                confidence=62,
+                description="Context: Within established uptrend (HH/HL structure). Evidence: Recent swing low higher than previous. Wick analysis: Lower wick visible at low (+5% for buyer defense). Confidence: 50 + 15 (with trend) + 5 (wick support) - 5 (no volume) - 3 (minor ambiguity) = 62%"
             ),
             PatternResult(
-                name="Double Bottom",
-                type="bullish",
-                confidence=82,
-                description="Classic W-shaped reversal pattern showing two distinct lows at approximately the same price level, with a moderate peak between them. Indicates strong support and potential trend reversal."
-            ),
-            PatternResult(
-                name="Higher High, Higher Low",
-                type="bullish",
-                confidence=75,
-                description="Uptrend structure with each swing high exceeding the previous high and each swing low staying above the previous low, confirming bullish momentum."
-            ),
-            PatternResult(
-                name="Minor Resistance Zone",
+                name="Range Support Test",
                 type="neutral",
-                confidence=68,
-                description="Price approaching a historical resistance level around the 50% Fibonacci retracement. Watch for breakout or rejection."
+                confidence=48,
+                description="Context: Price at bottom of visible range. Evidence: Horizontal bounce zone. Wick analysis: Upper wick on last green candle (-5% for resistance rejection). Confidence: 50 + 5 (support zone) - 5 (upper wick) - 2 (needs confirmation) = 48%"
             ),
         ]
         
-        demo_reasoning = """## Comprehensive Chart Analysis
-
-### Executive Summary
-The chart displays a strong **bullish bias** with multiple confirming signals. A double bottom pattern has formed at key support, followed by a bullish engulfing candle indicating strong buyer interest. The trend structure shows higher highs and higher lows, confirming upward momentum.
+        demo_reasoning = """## Summary
+The chart shows a **probable uptrend** based on higher highs and higher lows structure. A pullback to support is being tested with some bullish wick rejection signals, but volume confirmation is not visible.
 
 ---
 
-### Pattern Breakdown
+## Context Analysis
 
-**1. Bullish Engulfing (Confidence: 88%)**
-- Located at the second bottom of the double bottom formation
-- The green candle body completely engulfs the previous red candle
-- Significant increase in buying volume (if visible)
-- Strong reversal signal at support level
-
-**2. Double Bottom Formation (Confidence: 82%)**
-- First bottom: Tested support and bounced
-- Second bottom: Re-tested same level with bullish engulfing confirmation
-- Neckline resistance clearly defined
-- Target projection: ~12-15% above neckline break
-
-**3. Trend Structure (Confidence: 75%)**
-- Clean sequence of higher highs and higher lows
-- No lower lows since the double bottom
-- Momentum appears to be accelerating
+- Dominant Trend: UPTREND - Higher high and higher low structure visible
+- Evidence: Recent swing high exceeded previous high, no lower lows visible
+- Context weight: +15% (analysis aligns with trend)
+- Pattern Alignment: WITH trend (bullish patterns in uptrend = higher probability)
 
 ---
 
-### Entry Strategy
+## Pattern Analysis
 
-**Signal Status:** **READY** (Wait for final confirmation)
+**1. Higher Low in Uptrend (62% confidence)**
 
-**Entry Conditions:**
-1. [MET] Break above resistance zone with strong candle close
-2. [MET] Volume increase on breakout (at least 1.5x average)
-3. [MET] Retest of broken resistance as new support (optional but safer)
-4. [PENDING] Confirmation candle closing above entry zone
+- Context: Forms within established uptrend structure
+- Evidence: Most recent swing low is visibly higher than prior low
+- Wick Analysis: Lower wick at the low shows buyer defense (+5%)
+- Alternative: Could be start of sideways consolidation
+- Confidence: 50 (base) + 15 (with trend) + 5 (wick support) - 5 (no volume) - 3 (ambiguity) = 62%
 
-**Recommended Entry Zones:**
-- **Aggressive:** Current level to +2% (for experienced traders)
-- **Conservative:** After breakout and successful retest
+**2. Range Support Test (48% confidence)**
 
-**Risk Management:**
-- **Stop Loss:** Below the second bottom (3-5% risk)
-- **Take Profit 1:** First resistance zone (+8-10%)
-- **Take Profit 2:** Measured move target (+15-18%)
-- **Risk:Reward Ratio:** Approximately 1:3 to 1:4
-
-**Timeframe:** 5-15 trading days for primary targets
+- Context: Price testing bottom of visible trading range
+- Evidence: Horizontal area with multiple touches
+- Wick Analysis: Upper wick on last green candle suggests resistance (-5%)
+- Alternative: Could break support if momentum fails
+- Confidence: 50 (base) + 5 (support zone) - 5 (upper wick) - 2 (needs confirmation) = 48%
 
 ---
 
-### Key Levels to Monitor
+## Volume Assessment
 
-**Support Levels:**
-- **Strong Support:** Double bottom low (primary invalidation level)
-- **Secondary Support:** 20-period moving average (if visible)
-
-**Resistance Levels:**
-- **Immediate:** Current minor resistance zone
-- **Major:** Previous swing high
-- **Target:** Measured move from double bottom
+- Visible: No - Volume bars not visible at bottom of chart
+- Confidence adjustment: -5% applied
+- Breakout conviction: Cannot confirm without volume data
+- Recommendation: If volume becomes visible, look for rising volume on green candles
 
 ---
 
-### Risk Factors
+## Entry Strategy
 
-1. **Volume Confirmation Needed:** Ensure breakout occurs on increasing volume
-2. **Market Context:** Monitor overall market conditions and sector performance
-3. **False Breakout Risk:** Small cap or low volume stocks may fake out
-4. **Overbought Conditions:** If RSI >70, consider waiting for pullback
+**Signal: PREPARE** (Not ready yet)
 
----
+**Why this timing (not earlier/later):**
+- Earlier (now): Rejected - Pattern within trend but needs breakout confirmation
+- Later (after retest): Alternative - More conservative but may miss initial move
+- Chosen (breakout): Balances confirmation with opportunity
 
-### Final Recommendation
-
-**Overall Bias:** Bullish (Confidence: 82%)
-
-**Action Plan:**
-1. Set price alerts at key resistance levels
-2. Prepare entry order with stop loss pre-defined
-3. Wait for volume confirmation on breakout
-4. Consider scaling in: 50% on breakout, 50% on retest
-5. Trail stop loss as price advances toward targets
-
-**Best for:** Swing traders with 1-3 week holding period
-**Risk Level:** Moderate (proper stop loss reduces downside)
+**Entry conditions needed:**
+- Break above recent swing high
+- Breakout candle closes in upper 25% of its range (no large upper wick)
+- If volume visible: Must show increase on breakout
 
 ---
 
-*Disclaimer: This analysis is for educational purposes. Always conduct your own research and manage risk appropriately.*"""
+## Projections (Range-Based)
+
+**Method used:** Range Height Projection
+- Visible range height: approximately 3-4 candles worth of movement
+- Projection: Break above range top, target = range height projected upward
+- Target with uncertainty: Prior swing high or range height projection (±20%)
+
+**Alternative method:** Prior Impulse
+- Prior impulse leg visible: approximately equal to range height
+- 0.5x to 1x projection = conservative to moderate target
+
+---
+
+## Risks & Limitations
+
+- Counter-trend risks: Not applicable (analysis aligned with trend)
+- Volume: Not visible - cannot confirm breakout conviction
+- Price scale: Not visible - levels are approximate
+- Timeframe: Unknown - affects expected duration
+- Wick warning: Upper wick on recent candle suggests some resistance. Watch for repeated rejections.
+
+Disclaimer: Educational analysis. Trend context is most important - individual candles matter less than overall structure."""
 
         entry_timing = EntryTiming(
-            signal="ready",
-            timing_description="Setup is well-developed. Wait for breakout confirmation above resistance with volume.",
+            signal="prepare",
+            timing_description="Pattern aligned with uptrend but needs breakout confirmation. Why: Trend is bullish (most important), but entry timing requires break above resistance to confirm.",
             conditions=[
-                "Price breaks above current resistance zone",
-                "Breakout candle closes strong (near high)",
-                "Volume increases by at least 50% on breakout",
-                "No bearish divergence on momentum indicators"
+                "Price breaks above recent swing high",
+                "Breakout candle closes in upper 25% (small upper wick)",
+                "No immediate bearish engulfing after break"
             ],
-            entry_price_zone="Current price + 1-3% (on breakout confirmation)",
-            stop_loss="Below double bottom low (-3.5% to -5%)",
-            take_profit="TP1: +8-10% | TP2: +15-18% (measured move)",
-            risk_reward="1:3 to 1:4",
-            timeframe="5-15 trading days"
+            entry_price_zone="At or slightly above recent swing high (breakout level)",
+            stop_loss="Below recent higher low (structure invalidation)",
+            take_profit="Range height projection or prior swing structure (±20% uncertainty)",
+            risk_reward="Approximately 1:2 based on range measurement",
+            timeframe="Depends on chart timeframe - structure suggests swing trade"
         )
         
         return AnalysisResult(
             patterns=demo_patterns,
             market_bias="bullish",
-            confidence=82,
+            confidence=55,  # Conservative overall confidence
             reasoning=demo_reasoning,
             ai_provider="demo",
-            ai_model="demo-v2-enhanced",
+            ai_model="demo-v3-honest",
             entry_timing=entry_timing
         )
     
@@ -682,134 +661,252 @@ The chart displays a strong **bullish bias** with multiple confirming signals. A
         )
     
     def _get_enhanced_system_prompt(self) -> str:
-        """Enhanced system prompt with better instructions."""
-        return """You are an elite technical analyst with 20+ years of experience in pattern recognition and market timing.
+        """Enhanced system prompt with validation, scoring, and transparency."""
+        return """You are a cautious, methodical technical analyst who prioritizes accuracy over quantity.
 
-Your analysis must be:
-1. **Precise**: Identify exact patterns with specific names
-2. **Actionable**: Provide clear entry/exit strategies
-3. **Risk-Aware**: Include stop loss and position sizing guidance
-4. **Comprehensive**: Cover multiple timeframes and scenarios
+CORE PRINCIPLES:
+1. **Honest**: Only report what you can clearly see and verify
+2. **Conservative**: When uncertain, lower confidence or omit
+3. **Transparent**: Show HOW you reached each conclusion
+4. **Humble**: Acknowledge limitations (no volume, unclear candles, etc.)
 
-You MUST respond in valid JSON format with this exact structure:
+You MUST respond in valid JSON format with this structure:
 {
     "patterns": [
         {
-            "name": "Exact pattern name (e.g., Bullish Engulfing, Double Bottom)",
+            "name": "Pattern name",
             "type": "bullish" | "bearish" | "neutral",
-            "confidence": 0-100,
-            "description": "Detailed description with context and implications"
+            "confidence": 0-85,
+            "description": "Why this pattern, what evidence, what alternatives considered"
         }
     ],
     "market_bias": "bullish" | "bearish" | "neutral",
-    "confidence": 0-100,
+    "confidence": 0-85,
     "entry_timing": {
         "signal": "wait" | "prepare" | "ready" | "now",
-        "timing_description": "Specific explanation of when and why to enter",
-        "conditions": ["Array of specific conditions that must be met"],
-        "entry_price_zone": "Specific price range or percentage from current",
-        "stop_loss": "Exact level with percentage risk",
-        "take_profit": "Multiple targets with percentages",
-        "risk_reward": "Calculated ratio (e.g., 1:2.5)",
-        "timeframe": "Expected duration (e.g., 3-7 days, 2-4 weeks)"
+        "timing_description": "Specific explanation with methodology",
+        "conditions": ["Conditions that must be met"],
+        "entry_price_zone": "Range with uncertainty (e.g., 'approximately +2-4%')",
+        "stop_loss": "Level with range",
+        "take_profit": "Targets as ranges",
+        "risk_reward": "Calculated ratio",
+        "timeframe": "Expected duration"
     },
-    "reasoning": "Comprehensive markdown-formatted analysis with sections"
+    "reasoning": "Markdown analysis showing methodology"
 }
 
-ENTRY SIGNAL DEFINITIONS:
-- **wait**: Pattern forming but not confirmed; <50% confidence; missing key confirmations
-- **prepare**: Pattern developing; 50-70% confidence; watch for final confirmation triggers
-- **ready**: Strong setup; 70-85% confidence; wait for specific entry trigger (breakout, retest)
-- **now**: Optimal entry; >85% confidence; all conditions met; clear risk/reward
+=== CONTEXT HIERARCHY (CRITICAL) ===
+Always analyze in this order - higher levels override lower:
+1. TREND (most important): What is the dominant trend direction?
+2. PATTERN (secondary): What patterns form within that trend context?
+3. CANDLE (least important): What do individual candles suggest?
 
-ANALYSIS REQUIREMENTS:
-- Identify ALL visible candlestick patterns (minimum 2-5 patterns)
-- Specify exact support/resistance levels with price zones
-- Provide measured move targets based on pattern geometry
-- Calculate realistic risk:reward ratios
-- Consider volume, momentum, and trend context
-- Format reasoning with clear sections using markdown headers
-- Include both bullish AND bearish scenarios
+A bullish candle in a downtrend is WEAK. A bearish candle in an uptrend is often just a pullback.
+NEVER let a single candle pattern override clear trend structure.
 
-REASONING STRUCTURE:
-Use this format for the reasoning field:
+=== WICK ANALYSIS ===
+Wicks reveal rejection and failed moves:
+
+UPPER WICK near resistance:
+- Long upper wick = sellers rejected the move = BEARISH signal
+- Apply -10% confidence penalty if bullish pattern has long upper wick
+- "Upper wick rejection visible at resistance level"
+
+LOWER WICK near support:
+- Long lower wick = buyers defended the level = BULLISH signal  
+- Apply +5% confidence boost if lower wick at support
+- "Lower wick shows buyer defense at support"
+
+Wick ratio: If wick is >50% of candle range, it's significant.
+
+=== CONFIDENCE SCORING (SHOW YOUR MATH) ===
+Start at 50% and calculate:
+
+TREND CONTEXT (highest weight):
++15% Analysis aligns with dominant trend
+-20% Analysis AGAINST dominant trend (counter-trend)
+
+PATTERN QUALITY:
++10% Pattern matches textbook definition exactly
++5%  Pattern at key support/resistance level
+-15% Pattern is ambiguous or partially formed
+-10% Conflicting patterns present
+
+WICK ANALYSIS:
++5%  Supportive wick rejection (lower wick at support for bullish)
+-10% Adverse wick rejection (upper wick at resistance for bullish)
+
+VOLUME (if visible):
++10% Rising volume on breakout / pattern completion
++5%  Volume confirms pattern (high on reversal candle)
+-5%  Declining volume on breakout (weak conviction)
+-5%  Volume not visible in chart
+
+VISIBILITY:
+-10% Candles unclear or low image quality
+
+MAXIMUM: 85% (nothing is certain in markets)
+
+Example: "Confidence: 50 + 15 (with trend) + 10 (clear pattern) - 10 (upper wick rejection) - 5 (no volume) = 60%"
+
+=== VOLUME ANALYSIS (if visible) ===
+Step 1: Check "Are volume bars visible at bottom of chart?"
+
+If YES, analyze properly:
+- Rising volume on green candles = bullish conviction (+10% confidence)
+- Rising volume on breakout = confirmation (+10% confidence)
+- Declining volume on rally = weak move, be cautious (-5% confidence)
+- Volume spike on reversal candle = strong signal (+5% confidence)
+
+If NO:
+- State "Volume: Not visible in this chart"
+- Apply -5% confidence penalty
+- NEVER fabricate volume observations
+
+=== PROJECTION METHODOLOGY (Range-Based) ===
+DO NOT use arbitrary percentages. Use these methods:
+
+METHOD 1: RANGE HEIGHT PROJECTION
+- Measure the consolidation/pattern range height
+- Project that height from breakout point
+- "Target: Range height (~X candles) projected from break = approximately [level]"
+
+METHOD 2: PRIOR IMPULSE PROJECTION  
+- Measure the prior impulse move (last strong leg)
+- Apply 0.5x to 1x of that move as target
+- "Target: Prior impulse was ~Y range, projecting 0.5-1x = approximately [level]"
+
+METHOD 3: SWING STRUCTURE
+- Identify prior swing highs/lows as targets
+- "Target: Prior swing high visible at approximately [level]"
+
+ALWAYS add ±20% uncertainty to any projection.
+NEVER state exact percentages without visible price scale.
+
+=== METHODOLOGY TRANSPARENCY ===
+For EVERY conclusion, explain WHY:
+
+Context Assessment:
+"Trend: [direction] based on [HH/HL or LH/LL structure]
+Pattern within context: [aligned/counter to trend]
+Weight applied: [+15% with trend OR -20% counter-trend]"
+
+Wick Analysis:
+"Wick observation: [upper/lower wick at key level]
+Significance: [>50% of range = significant]
+Confidence adjustment: [+5% or -10%]"
+
+Volume Assessment:
+"Volume visible: [Yes/No]
+If visible: [rising/falling on what type of candles]
+Confidence adjustment: [+10%, +5%, -5%, etc.]"
+
+Projection Method:
+"Method used: [range height / prior impulse / swing structure]
+Measurement: [how I estimated it]
+Target with uncertainty: [range ±20%]"
+
+=== REASONING STRUCTURE ===
 ## Summary
-Brief overview of market state
+Brief overview (2-3 sentences)
 
-## Pattern Analysis  
-Detailed breakdown of each pattern
+## Context Analysis (FIRST)
+- Dominant trend direction
+- Why: [HH/HL or LH/LL structure visible]
+- Pattern alignment: with or against trend
+
+## Pattern Analysis
+For each pattern:
+- Evidence (what candles)
+- Wick analysis (rejection signals)
+- Confidence calculation (show math with trend/wick/volume factors)
+- Alternative interpretations considered
+
+## Volume Assessment
+- Visible: Yes/No
+- If yes: What it shows
+- Confidence adjustment applied
 
 ## Entry Strategy
-Specific entry conditions and timing
+- Recommendation with methodology
+- Why this timing over alternatives
 
-## Key Levels
-Support and resistance with price targets
+## Projections
+- Method used (range/impulse/swing)
+- Target with ±20% uncertainty
 
-## Risks
-What could invalidate the setup
-
-## Recommendation
-Final verdict with action steps"""
+## Risks & Limitations
+- Counter-trend risks
+- What data is missing"""
 
     def _get_enhanced_analysis_prompt(self) -> str:
-        """Enhanced analysis prompt with specific requirements."""
-        return """Analyze this candlestick chart with institutional-grade precision:
+        """Enhanced analysis prompt with conservative, honest requirements."""
+        return """Analyze this candlestick chart carefully and honestly:
 
-REQUIRED ANALYSIS COMPONENTS:
+CRITICAL RULES:
+1. Report ONLY patterns you can CLEARLY see (1-3 maximum)
+2. If unsure, say "uncertain" or omit the pattern
+3. Never fabricate data (volume, indicators, exact prices)
+4. Use ranges and uncertainty language ("approximately", "possibly")
 
-1. **PATTERN IDENTIFICATION** (Find 3-6 patterns):
-   - Candlestick patterns (Hammer, Doji, Engulfing, Stars, Marubozu, etc.)
-   - Chart patterns (Double Top/Bottom, H&S, Triangles, Flags, Wedges)
-   - Trend patterns (Higher Highs/Lows, Trendlines, Channels)
-   - Volume patterns (if visible)
-   
-2. **PRICE ACTION ANALYSIS**:
-   - Current trend direction and strength
-   - Support/resistance levels (specify exact price zones)
-   - Key pivot points
-   - Fibonacci levels (if applicable)
+=== ANALYSIS STEPS ===
 
-3. **ENTRY TIMING STRATEGY**:
-   Determine the EXACT conditions for entry:
-   - Is the pattern complete or still forming?
-   - What confirmation signals are needed? (volume, follow-through candle, indicator confirmation)
-   - What is the optimal entry price zone?
-   - Where should stop loss be placed? (specific level + % risk)
-   - What are the take profit targets? (TP1, TP2, TP3 with percentages)
-   - What is the risk:reward ratio?
-   - What is the expected timeframe for this trade?
-   - What could invalidate this setup?
+STEP 1: VISUAL ASSESSMENT
+First, describe what you can actually see:
+- How many candles are visible?
+- Is volume displayed at the bottom? (Yes/No)
+- Is a price scale visible? (Yes/No)
+- What is the overall trend direction?
 
-4. **RISK ASSESSMENT**:
-   - Primary risks to the setup
-   - Alternative scenarios (bear case if bullish, bull case if bearish)
-   - Market context considerations
-   - Probability assessment
+STEP 2: PATTERN IDENTIFICATION (Be conservative)
+Look for 1-3 CLEAR patterns only. For each:
+- Name the pattern
+- Cite which candles form it
+- Check validation criteria (see system prompt)
+- Consider alternatives: "This could also be..."
+- If ambiguous, reduce confidence or skip
 
-5. **COMPREHENSIVE REASONING**:
-   Structure your analysis with clear markdown sections:
-   - Summary (2-3 sentences)
-   - Pattern Breakdown (detailed analysis of each pattern)
-   - Entry Strategy (specific timing and conditions)
-   - Key Levels (support, resistance, targets)
-   - Risk Factors (what could go wrong)
-   - Final Recommendation (action plan)
+STEP 3: CONFIDENCE CALCULATION (Show your work)
+Start at 50% base confidence:
+- Add points for clear evidence
+- Subtract points for uncertainty
+- Show the math: "50 + 15 - 10 = 55%"
+- Maximum 85% (markets are never certain)
 
-CONFIDENCE SCORING GUIDE:
-- 85-100%: High conviction, multiple confirming signals, clear structure
-- 70-84%: Good setup, waiting for final confirmation
-- 50-69%: Developing pattern, monitor for clarity
-- Below 50%: Unclear or conflicting signals
+STEP 4: ENTRY ASSESSMENT
+- Is the pattern complete or forming?
+- What confirmation is needed?
+- Give ranges, not exact numbers
+- Acknowledge what you cannot see
 
-QUALITY STANDARDS:
-- Be specific with price levels (not vague)
-- Provide measurable targets (percentages and prices)
-- Include both best-case and worst-case scenarios
-- Consider multiple timeframes if visible
-- Explain WHY each pattern matters
-- Give actionable next steps
+STEP 5: LIMITATIONS (Be honest)
+State clearly:
+- "Volume: Not visible in chart" (if true)
+- "Price scale: Not visible" (if true)
+- "Pattern: Partially formed / needs confirmation"
+- "Uncertainty: [specific concerns]"
 
-Return a properly formatted JSON object following the schema exactly."""
+=== OUTPUT REQUIREMENTS ===
+
+Pattern descriptions must include:
+"Evidence: [what I see]
+Alternative interpretation: [what else this could be]
+Why I chose this: [reasoning]
+Confidence: [calculation]"
+
+Entry timing must include:
+"Why this timing: [reasoning]
+Alternatives considered: [1, 2, 3]
+Why alternatives rejected: [reasons]"
+
+=== DO NOT ===
+- Claim volume confirmation if no volume bars visible
+- Give exact percentages (use ranges)
+- Report more than 3 patterns
+- Confidence above 85%
+- Fabricate indicator data (RSI, MACD, etc.)
+
+Return a properly formatted JSON object."""
 
     def _parse_ai_response(
         self,
