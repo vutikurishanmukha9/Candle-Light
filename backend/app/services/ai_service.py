@@ -132,6 +132,8 @@ class AIService:
                     return await self._analyze_with_gemini(image_path, image_bytes)
                 elif provider == "anthropic":
                     return await self._analyze_with_anthropic(image_path, image_bytes)
+                elif provider == "openrouter":
+                    return await self._analyze_with_openrouter(image_path, image_bytes)
                 elif provider == "inhouse":
                     return await self._analyze_with_inhouse(image_path, image_bytes)
                 else:
@@ -146,7 +148,7 @@ class AIService:
         primary_error: Exception
     ) -> AnalysisResult:
         """Try fallback providers in order of preference."""
-        fallback_order = ["inhouse", "openai", "gemini", "anthropic", "demo"]
+        fallback_order = ["openrouter", "inhouse", "openai", "gemini", "anthropic", "demo"]
         
         # Remove primary provider from fallbacks
         if self.provider in fallback_order:
@@ -390,6 +392,93 @@ class AIService:
             raise AIServiceError("Anthropic package not installed. Run: pip install anthropic")
         except Exception as e:
             raise AIServiceError(f"Anthropic API error: {str(e)}")
+    
+    async def _analyze_with_openrouter(
+        self,
+        image_path: str,
+        image_bytes: bytes
+    ) -> AnalysisResult:
+        """
+        Analyze chart using OpenRouter API (OpenAI-compatible).
+        OpenRouter provides access to multiple AI models via a unified API.
+        """
+        try:
+            from openai import AsyncOpenAI
+            
+            # OpenRouter uses OpenAI-compatible API with different base URL
+            client = AsyncOpenAI(
+                api_key=settings.openrouter_api_key,
+                base_url="https://openrouter.ai/api/v1"
+            )
+            
+            # Encode to base64
+            base64_image = base64.b64encode(image_bytes).decode("utf-8")
+            
+            # Determine image type
+            ext = Path(image_path).suffix.lower()
+            media_type = {
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".png": "image/png",
+                ".webp": "image/webp",
+                ".gif": "image/gif",
+            }.get(ext, "image/jpeg")
+            
+            # Get model from settings or use default
+            model = settings.openrouter_model
+            
+            # Retry with exponential backoff
+            last_error = None
+            
+            for attempt in range(self.max_retries):
+                try:
+                    response = await client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": self._get_enhanced_system_prompt()
+                            },
+                            {
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "text",
+                                        "text": self._get_enhanced_analysis_prompt()
+                                    },
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": f"data:{media_type};base64,{base64_image}"
+                                        }
+                                    }
+                                ]
+                            }
+                        ],
+                        max_tokens=2000,
+                        temperature=0.2,
+                        extra_headers={
+                            "HTTP-Referer": settings.app_url if hasattr(settings, 'app_url') else "https://candle-light.app",
+                            "X-Title": "Candle-Light Chart Analysis"
+                        }
+                    )
+                    
+                    content = response.choices[0].message.content
+                    return self._parse_ai_response(content, "openrouter", model)
+                    
+                except Exception as e:
+                    last_error = e
+                    if attempt < self.max_retries - 1:
+                        wait_time = (2 ** attempt) * 0.5
+                        await asyncio.sleep(wait_time)
+                    continue
+            
+            raise last_error
+            
+        except ImportError:
+            raise AIServiceError("OpenAI package not installed. Run: pip install openai")
+        except Exception as e:
+            raise AIServiceError(f"OpenRouter API error: {str(e)}")
     
     async def _analyze_with_inhouse(
         self,

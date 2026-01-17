@@ -76,7 +76,9 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     google_ai_api_key: str = ""
     anthropic_api_key: str = ""
-    ai_provider: Literal["openai", "gemini", "anthropic", "inhouse", "demo"] = "demo"
+    openrouter_api_key: str = ""
+    openrouter_model: str = "anthropic/claude-3.5-sonnet"  # Default model on OpenRouter
+    ai_provider: Literal["openai", "gemini", "anthropic", "openrouter", "inhouse", "demo"] = "demo"
     
     @property
     def ai_enabled(self) -> bool:
@@ -87,6 +89,8 @@ class Settings(BaseSettings):
             return bool(self.google_ai_api_key)
         elif self.ai_provider == "anthropic":
             return bool(self.anthropic_api_key)
+        elif self.ai_provider == "openrouter":
+            return bool(self.openrouter_api_key)
         return True  # Demo mode is always available
     
     # ===================
