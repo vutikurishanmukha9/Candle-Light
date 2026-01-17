@@ -30,9 +30,9 @@ class PatternResult(BaseModel):
 
 class EntryTiming(BaseModel):
     """Schema for market entry timing prediction."""
-    signal: Literal["wait", "prepare", "ready", "now"] = Field(
+    signal: Literal["wait", "prepare", "trend_continuation", "buy_pullback", "ready", "now"] = Field(
         "wait",
-        description="Entry signal: wait, prepare, ready, or now"
+        description="Entry signal: wait, prepare, trend_continuation, buy_pullback, ready, or now"
     )
     timing_description: Optional[str] = Field(
         None,
@@ -61,6 +61,10 @@ class EntryTiming(BaseModel):
     timeframe: Optional[str] = Field(
         None,
         description="Expected timeframe for the trade"
+    )
+    scaling_strategy: Optional[str] = Field(
+        None,
+        description="How to scale into position (e.g., '50% now, 50% on pullback')"
     )
 
 

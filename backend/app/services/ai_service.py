@@ -447,30 +447,30 @@ class AIService:
         # Conservative patterns with proper methodology including new features
         demo_patterns = [
             PatternResult(
-                name="Higher Low in Uptrend",
+                name="Higher Low in Strong Uptrend",
                 type="bullish",
-                confidence=62,
-                description="Context: Within established uptrend (HH/HL structure). Evidence: Recent swing low higher than previous. Wick analysis: Lower wick visible at low (+5% for buyer defense). Confidence: 50 + 15 (with trend) + 5 (wick support) - 5 (no volume) - 3 (minor ambiguity) = 62%"
+                confidence=72,
+                description="Context: Strong uptrend with clean HH/HL structure. Evidence: New high just made (auto-upgrade triggered). Wick analysis: Lower wick at pullback (+5%). Structure: Clean steps = volume penalty reduced. Confidence: 50 + 10 (new high confirmation) + 15 (with trend) + 5 (wick) - 1 (no volume, clean structure) - 7 (waiting for pullback) = 72%"
             ),
             PatternResult(
-                name="Range Support Test",
-                type="neutral",
-                confidence=48,
-                description="Context: Price at bottom of visible range. Evidence: Horizontal bounce zone. Wick analysis: Upper wick on last green candle (-5% for resistance rejection). Confidence: 50 + 5 (support zone) - 5 (upper wick) - 2 (needs confirmation) = 48%"
+                name="Pullback Zone (Not Range)",
+                type="bullish",
+                confidence=65,
+                description="Context: Strong uptrend - range logic DEACTIVATED. This is a PULLBACK ZONE, not range resistance. Evidence: 3-candle pause in trend (healthy consolidation). Tiered entry applies: 50% at wick rejection, 50% after close above high. Confidence: 50 + 15 (strong trend) + 5 (pullback to support) - 5 (needs confirmation) = 65%"
             ),
         ]
         
         demo_reasoning = """## Summary
-The chart shows a **probable uptrend** based on higher highs and higher lows structure. A pullback to support is being tested with some bullish wick rejection signals, but volume confirmation is not visible.
+The chart shows a **strong uptrend** with clean higher highs and higher lows structure. A new high was recently made, triggering AUTO-UPGRADE of confidence. Current pullback is a buying opportunity, not a range to sell.
 
 ---
 
 ## Context Analysis
 
-- Dominant Trend: UPTREND - Higher high and higher low structure visible
-- Evidence: Recent swing high exceeded previous high, no lower lows visible
-- Context weight: +15% (analysis aligns with trend)
-- Pattern Alignment: WITH trend (bullish patterns in uptrend = higher probability)
+- Dominant Trend: STRONG UPTREND (clean HH/HL, range logic DEACTIVATED)
+- New High Made: YES (auto-upgrade triggered: -3% ambiguity → +10% confirmation)
+- Price Structure: Clean (volume penalty reduced from -5% to -1%)
+- Pattern Alignment: WITH trend (full weight applied)
 
 ---
 
@@ -543,27 +543,28 @@ The chart shows a **probable uptrend** based on higher highs and higher lows str
 Disclaimer: Educational analysis. Trend context is most important - individual candles matter less than overall structure."""
 
         entry_timing = EntryTiming(
-            signal="prepare",
-            timing_description="Pattern aligned with uptrend but needs breakout confirmation. Why: Trend is bullish (most important), but entry timing requires break above resistance to confirm.",
+            signal="buy_pullback",
+            timing_description="Strong uptrend with wick rejection at pullback zone. Auto-upgrade applied (+10%). Range logic DEACTIVATED. Execute TIERED ENTRY: 50% now at wick rejection, 50% after close above high.",
             conditions=[
-                "Price breaks above recent swing high",
-                "Breakout candle closes in upper 25% (small upper wick)",
-                "No immediate bearish engulfing after break"
+                "Wick rejection visible at pullback support (Tier 1 READY)",
+                "Price holding above recent higher low (structure intact)",
+                "Wait for close above recent high for Tier 2"
             ],
-            entry_price_zone="At or slightly above recent swing high (breakout level)",
-            stop_loss="Below recent higher low (structure invalidation)",
-            take_profit="Range height projection or prior swing structure (±20% uncertainty)",
-            risk_reward="Approximately 1:2 based on range measurement",
-            timeframe="Depends on chart timeframe - structure suggests swing trade"
+            entry_price_zone="Tier 1: Current level (wick rejection) | Tier 2: Above recent high",
+            stop_loss="Below recent higher low (structure invalidation, -3% to -5%)",
+            take_profit="Tier 1 target: Prior swing high | Tier 2 target: Projection of range height",
+            risk_reward="1:2 to 1:3 depending on tier entry",
+            timeframe="Swing trade: 3-10 days depending on chart timeframe",
+            scaling_strategy="TIERED: 50% NOW at pullback wick rejection | 50% after close above resistance"
         )
         
         return AnalysisResult(
             patterns=demo_patterns,
             market_bias="bullish",
-            confidence=55,  # Conservative overall confidence
+            confidence=69,  # Weighted average: (72 + 65) / 2 = 68.5 → 69 (context override applied)
             reasoning=demo_reasoning,
             ai_provider="demo",
-            ai_model="demo-v3-honest",
+            ai_model="demo-v4-context-override",
             entry_timing=entry_timing
         )
     
@@ -683,17 +684,88 @@ You MUST respond in valid JSON format with this structure:
     "market_bias": "bullish" | "bearish" | "neutral",
     "confidence": 0-85,
     "entry_timing": {
-        "signal": "wait" | "prepare" | "ready" | "now",
+        "signal": "wait" | "prepare" | "trend_continuation" | "buy_pullback" | "ready" | "now",
         "timing_description": "Specific explanation with methodology",
         "conditions": ["Conditions that must be met"],
-        "entry_price_zone": "Range with uncertainty (e.g., 'approximately +2-4%')",
+        "entry_price_zone": "Range with uncertainty",
         "stop_loss": "Level with range",
         "take_profit": "Targets as ranges",
         "risk_reward": "Calculated ratio",
-        "timeframe": "Expected duration"
+        "timeframe": "Expected duration",
+        "scaling_strategy": "How to scale into position (e.g., '50% now, 50% on pullback')"
     },
     "reasoning": "Markdown analysis showing methodology"
 }
+
+=== SIGNAL DEFINITIONS ===
+- **wait**: No clear setup; <40% confidence; stay out
+- **prepare**: Setup developing; 40-55% confidence; set alerts, plan entry
+- **trend_continuation**: Strong trend intact; 55-65% confidence; wait for pullback
+- **buy_pullback**: Pullback zone reached in uptrend; 65-75% confidence; execute tiered entry
+- **ready**: Clear setup; 75-80% confidence; enter with defined risk
+- **now**: Optimal entry; >80% confidence; full position with tight stops
+
+USE "buy_pullback" when:
+- Strong uptrend confirmed (HH/HL structure, auto-upgrade may have triggered)
+- Price has pulled back to support zone (not just paused)
+- Wick rejection visible at support = Tier 1 entry trigger
+- This is the ACTION signal for executing tiered entry (50/50)
+
+=== TREND CONTINUATION LOGIC ===
+Use "trend_continuation" when:
+- Strong, established trend (3+ impulse waves or clear HH/HL structure)
+- Price pulling back to support in uptrend OR rallying to resistance in downtrend
+- Trend structure intact (no lower lows in uptrend, no higher highs in downtrend)
+- Missing volume is ACCEPTABLE - trend strength overrides volume penalty
+
+=== TREND STRENGTH OVERRIDES ===
+In STRONG TRENDS, these rules apply:
+
+1. AUTO-UPGRADE CONFIDENCE (New High Trigger):
+   - If Price > Recent_Swing_High: REMOVE ambiguity penalty (-3% to -5%)
+   - REPLACE with +10% "Trend Confirmation" bonus
+   - Logic: A new high PROVES the resistance was broken. Uncertainty is gone.
+   - Example: Was "50 - 3 (ambiguity)" → Now "50 + 10 (new high confirmation)"
+
+2. DEACTIVATE RANGE LOGIC IN TRENDING MARKETS:
+   - If Trend = STRONG_UPTREND (clear HH/HL), IGNORE "Range Resistance" tests
+   - Instead, look for "PULLBACK ZONES" (areas to add to position)
+   - Range logic (overbought/oversold) gives false "Sell" signals in uptrends
+   - Only apply range logic if 10+ candles with NO directional progress
+
+3. STRUCTURE OVERRIDES VOLUME (Clean Price Action Priority):
+   - If Price Structure = "Perfect" (clean HH/HL steps, no messy candles):
+     - REDUCE "No Volume Penalty" from -5% to -1%
+     - Clean structure is MORE reliable than volume (volume can be manipulated)
+   - If Price Structure = "Messy" (overlapping candles, unclear swings):
+     - KEEP full -5% volume penalty
+   - Logic: In digital markets, trust price structure over raw volume
+
+Pattern weight adjusted:
+- With-trend patterns: Full weight
+- Counter-trend patterns: HALVED weight (bearish candle in uptrend = noise)
+
+=== TIERED ENTRY / SCALING LOGIC ===
+Real traders scale into positions. NEVER go 100% all-in.
+
+TIERED ENTRY STRUCTURE:
+Entry 1 (Aggressive, 50%): At support touch with wick rejection
+Entry 2 (Conservative, 50%): After candle close above resistance
+
+For "trend_continuation":
+- "Tier 1 (50%): Enter at pullback support with wick rejection confirmation"
+- "Tier 2 (50%): Add position after candle closes above recent high"
+
+For "ready":
+- "Initial (60%): Enter on clear signal with stop defined"
+- "Add (40%): On first pullback after move starts"
+
+For "now":
+- "Primary (70%): Enter immediately with tight stop"
+- "Reserve (30%): Add on minor pullback if available"
+
+Include in scaling_strategy field with clear tier percentages.
+NEVER recommend 100% position on first entry. Scaling reduces risk.
 
 === CONTEXT HIERARCHY (CRITICAL) ===
 Always analyze in this order - higher levels override lower:
@@ -719,48 +791,73 @@ LOWER WICK near support:
 
 Wick ratio: If wick is >50% of candle range, it's significant.
 
-=== CONFIDENCE SCORING (SHOW YOUR MATH) ===
-Start at 50% and calculate:
+=== CONFIDENCE SCORING (DYNAMIC CALCULATION) ===
+Start at 50% and apply these rules IN ORDER:
 
-TREND CONTEXT (highest weight):
+STEP 1: TREND CONTEXT (highest weight)
 +15% Analysis aligns with dominant trend
 -20% Analysis AGAINST dominant trend (counter-trend)
 
-PATTERN QUALITY:
+STEP 2: AUTO-UPGRADE CHECK (CRITICAL - affects math not just text)
+IF Price > Recent_Swing_High (new high made):
+  - REMOVE any ambiguity penalty (-3% to -5%)
+  - ADD +10% "Trend Confirmation" bonus
+  - This CHANGES the math: 
+    Before: 50 + 15 - 5 (ambiguity) = 60
+    After:  50 + 15 + 10 (confirmation) = 75
+
+STEP 3: RANGE LOGIC CHECK
+IF Trend = STRONG_UPTREND or STRONG_DOWNTREND:
+  - DEACTIVATE range-based penalties (overbought/oversold, range resistance)
+  - Set range_penalty = 0
+  - Instead, look for PULLBACK ZONES
+IF Trend = WEAK or SIDEWAYS:
+  - Apply normal range logic
+  - Range resistance test: -5%
+
+STEP 4: PATTERN QUALITY
 +10% Pattern matches textbook definition exactly
 +5%  Pattern at key support/resistance level
--15% Pattern is ambiguous or partially formed
+-15% Pattern is ambiguous or partially formed (SKIP if auto-upgrade triggered)
 -10% Conflicting patterns present
 
-WICK ANALYSIS:
+STEP 5: WICK ANALYSIS
 +5%  Supportive wick rejection (lower wick at support for bullish)
 -10% Adverse wick rejection (upper wick at resistance for bullish)
 
-VOLUME (if visible):
-+10% Rising volume on breakout / pattern completion
-+5%  Volume confirms pattern (high on reversal candle)
--5%  Declining volume on breakout (weak conviction)
--5%  Volume not visible in chart
-
-VISIBILITY:
+STEP 6: VOLUME PENALTY (STRUCTURE-ADJUSTED)
+IF volume visible:
+  +10% Rising volume on breakout
+  +5%  Volume confirms pattern
+  -5%  Declining volume on breakout
+  
+IF volume NOT visible:
+  Check Price Structure:
+  - IF structure = "Clean" (clear HH/HL, no messy overlaps): -1% only
+  - IF structure = "Messy" (unclear swings, overlapping candles): -5% full penalty
+  
+STEP 7: VISIBILITY
 -10% Candles unclear or low image quality
 
 MAXIMUM: 85% (nothing is certain in markets)
 
-Example: "Confidence: 50 + 15 (with trend) + 10 (clear pattern) - 10 (upper wick rejection) - 5 (no volume) = 60%"
+SHOW YOUR MATH EXAMPLE:
+"Confidence: 50 + 15 (with trend) + 10 (new high auto-upgrade) + 5 (wick rejection) - 1 (no volume, clean structure) = 79%"
 
-=== VOLUME ANALYSIS (if visible) ===
+=== VOLUME ANALYSIS (structure-adjusted) ===
 Step 1: Check "Are volume bars visible at bottom of chart?"
 
 If YES, analyze properly:
-- Rising volume on green candles = bullish conviction (+10% confidence)
-- Rising volume on breakout = confirmation (+10% confidence)
-- Declining volume on rally = weak move, be cautious (-5% confidence)
-- Volume spike on reversal candle = strong signal (+5% confidence)
+- Rising volume on green candles = bullish conviction (+10%)
+- Rising volume on breakout = confirmation (+10%)
+- Declining volume on rally = weak move (-5%)
+- Volume spike on reversal candle = strong signal (+5%)
 
 If NO:
 - State "Volume: Not visible in this chart"
-- Apply -5% confidence penalty
+- Check structure quality:
+  - Clean HH/HL steps → Apply -1% only
+  - Messy structure → Apply -5% full penalty
 - NEVER fabricate volume observations
 
 === PROJECTION METHODOLOGY (Range-Based) ===

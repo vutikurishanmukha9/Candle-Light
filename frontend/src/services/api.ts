@@ -229,7 +229,7 @@ export interface PatternResult {
 }
 
 export interface EntryTiming {
-  signal: 'wait' | 'prepare' | 'ready' | 'now';
+  signal: 'wait' | 'prepare' | 'trend_continuation' | 'buy_pullback' | 'ready' | 'now';
   timing_description?: string;
   conditions?: string[];
   entry_price_zone?: string;
@@ -237,6 +237,7 @@ export interface EntryTiming {
   take_profit?: string;
   risk_reward?: string;
   timeframe?: string;
+  scaling_strategy?: string;
 }
 
 export interface AnalysisResult {
