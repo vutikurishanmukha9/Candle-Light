@@ -1,6 +1,20 @@
 import { useState, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Sparkles, ImagePlus, Trash2, Save, RotateCcw, Target, TrendingUp } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import {
+  Sparkles,
+  ImagePlus,
+  Trash2,
+  Save,
+  RotateCcw,
+  Target,
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  Clock,
+  ChevronRight,
+  Activity,
+  Zap
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UploadDropzone } from "@/components/UploadDropzone";
 import { AnalysisCard } from "@/components/AnalysisCard";
@@ -10,6 +24,16 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { analysisApi, AnalysisResult, ApiError } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
+
+// Stats interface
+interface DashboardStats {
+  totalAnalyses: number;
+  bullishCount: number;
+  bearishCount: number;
+  neutralCount: number;
+  avgConfidence: number;
+  thisWeekCount: number;
+}
 
 // Convert API result to component format
 function formatAnalysisResult(apiResult: AnalysisResult, imageUrl: string) {
@@ -42,10 +66,64 @@ export default function Dashboard() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<ReturnType<typeof formatAnalysisResult> | null>(null);
   const [analysisId, setAnalysisId] = useState<string | null>(null);
+  const [recentAnalyses, setRecentAnalyses] = useState<AnalysisResult[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalAnalyses: 0,
+    bullishCount: 0,
+    bearishCount: 0,
+    neutralCount: 0,
+    avgConfidence: 0,
+    thisWeekCount: 0,
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
 
   const { user, isLoggedIn } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Fetch stats and recent analyses
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!isLoggedIn) {
+        setIsLoadingStats(false);
+        return;
+      }
+
+      try {
+        const response = await analysisApi.getHistory(1, 10);
+        const items = response.items;
+        setRecentAnalyses(items.slice(0, 3));
+
+        // Calculate stats from history
+        const bullish = items.filter(i => i.market_bias === 'bullish').length;
+        const bearish = items.filter(i => i.market_bias === 'bearish').length;
+        const neutral = items.filter(i => i.market_bias === 'neutral').length;
+        const avgConf = items.length > 0
+          ? Math.round(items.reduce((acc, i) => acc + i.confidence, 0) / items.length)
+          : 0;
+
+        // This week count
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        const weekCount = items.filter(i => new Date(i.created_at) >= oneWeekAgo).length;
+
+        setStats({
+          totalAnalyses: response.total,
+          bullishCount: bullish,
+          bearishCount: bearish,
+          neutralCount: neutral,
+          avgConfidence: avgConf,
+          thisWeekCount: weekCount,
+        });
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [isLoggedIn]);
 
   // MEMORY MANAGEMENT: Cleanup blob URLs to prevent memory leaks
   useEffect(() => {
@@ -136,6 +214,123 @@ export default function Dashboard() {
       subtitle="Upload a candlestick chart to get instant AI-powered analysis"
     >
       <div className="grid gap-6 lg:gap-8">
+        {/* Stats Section */}
+        {isLoggedIn && !selectedFile && !result && (
+          <section className="animate-fade-up">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Total Analyses */}
+              <div className="glass-card p-5 hover:border-primary/30 transition-all group">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <BarChart3 className="h-5 w-5 text-primary" />
+                  </div>
+                  {isLoadingStats ? (
+                    <div className="h-6 w-12 bg-muted animate-pulse rounded" />
+                  ) : (
+                    <span className="text-2xl font-bold">{stats.totalAnalyses}</span>
+                  )}
+                </div>
+                <h3 className="text-sm font-medium text-muted-foreground">Total Analyses</h3>
+              </div>
+
+              {/* This Week */}
+              <div className="glass-card p-5 hover:border-primary/30 transition-all group">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                    <Clock className="h-5 w-5 text-blue-500" />
+                  </div>
+                  {isLoadingStats ? (
+                    <div className="h-6 w-12 bg-muted animate-pulse rounded" />
+                  ) : (
+                    <span className="text-2xl font-bold">{stats.thisWeekCount}</span>
+                  )}
+                </div>
+                <h3 className="text-sm font-medium text-muted-foreground">This Week</h3>
+              </div>
+
+              {/* Avg Confidence */}
+              <div className="glass-card p-5 hover:border-primary/30 transition-all group">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                    <Zap className="h-5 w-5 text-amber-500" />
+                  </div>
+                  {isLoadingStats ? (
+                    <div className="h-6 w-12 bg-muted animate-pulse rounded" />
+                  ) : (
+                    <span className="text-2xl font-bold">{stats.avgConfidence}%</span>
+                  )}
+                </div>
+                <h3 className="text-sm font-medium text-muted-foreground">Avg Confidence</h3>
+              </div>
+
+              {/* Market Bias Distribution */}
+              <div className="glass-card p-5 hover:border-primary/30 transition-all group">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                    <Activity className="h-5 w-5 text-emerald-500" />
+                  </div>
+                  {isLoadingStats ? (
+                    <div className="h-6 w-20 bg-muted animate-pulse rounded" />
+                  ) : (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-emerald-500 font-medium">{stats.bullishCount}↑</span>
+                      <span className="text-destructive font-medium">{stats.bearishCount}↓</span>
+                      <span className="text-muted-foreground">{stats.neutralCount}−</span>
+                    </div>
+                  )}
+                </div>
+                <h3 className="text-sm font-medium text-muted-foreground">Bias Distribution</h3>
+              </div>
+            </div>
+
+            {/* Recent Analyses */}
+            {recentAnalyses.length > 0 && (
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold">Recent Analyses</h3>
+                  <Link to="/history" className="text-sm text-primary hover:underline flex items-center gap-1">
+                    View all <ChevronRight className="h-4 w-4" />
+                  </Link>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {recentAnalyses.map((item) => (
+                    <div
+                      key={item.id}
+                      className="glass-card p-4 hover:border-primary/30 transition-all cursor-pointer group"
+                      onClick={() => navigate('/history')}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
+                          item.market_bias === 'bullish' && "bg-emerald-500/10",
+                          item.market_bias === 'bearish' && "bg-destructive/10",
+                          item.market_bias === 'neutral' && "bg-muted"
+                        )}>
+                          {item.market_bias === 'bullish' ? (
+                            <TrendingUp className="h-5 w-5 text-emerald-500" />
+                          ) : item.market_bias === 'bearish' ? (
+                            <TrendingDown className="h-5 w-5 text-destructive" />
+                          ) : (
+                            <Activity className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium capitalize text-sm group-hover:text-primary transition-colors">
+                            {item.market_bias} Signal
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.confidence}% confidence
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Upload Section */}
         <section className="animate-fade-up">
           <div className="glass-card p-6 lg:p-8">
