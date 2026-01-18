@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
     User,
     Palette,
@@ -14,8 +15,7 @@ import {
     Eye,
     EyeOff,
     AlertTriangle,
-    Check,
-    ChevronRight
+    Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { userApi, analysisApi, UserPreferences } from "@/services/api";
 import {
     Select,
     SelectContent,
@@ -102,8 +103,9 @@ function SettingsRow({
 }
 
 export default function Settings() {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const { toast } = useToast();
+    const navigate = useNavigate();
 
     // Profile state
     const [displayName, setDisplayName] = useState(user?.full_name || "");
@@ -115,21 +117,46 @@ export default function Settings() {
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [showPasswords, setShowPasswords] = useState(false);
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-    // Preferences state
-    const [theme, setTheme] = useState<"dark" | "light" | "system">("dark");
+    // Preferences state - load from localStorage initially
+    const [theme, setTheme] = useState<"dark" | "light" | "system">(() => {
+        return (localStorage.getItem("theme") as "dark" | "light" | "system") || "dark";
+    });
     const [autoSave, setAutoSave] = useState(true);
     const [emailNotifications, setEmailNotifications] = useState(true);
     const [analysisNotifications, setAnalysisNotifications] = useState(true);
     const [compactView, setCompactView] = useState(false);
     const [confidenceThreshold, setConfidenceThreshold] = useState("60");
+    const [isLoadingPrefs, setIsLoadingPrefs] = useState(true);
+    const [isSavingPrefs, setIsSavingPrefs] = useState(false);
+
+    // Load preferences from API on mount
+    useEffect(() => {
+        const loadPreferences = async () => {
+            try {
+                const prefs = await userApi.getPreferences();
+                if (prefs.theme) setTheme(prefs.theme as "dark" | "light" | "system");
+                if (prefs.auto_save !== undefined) setAutoSave(prefs.auto_save);
+                if (prefs.email_notifications !== undefined) setEmailNotifications(prefs.email_notifications);
+                if (prefs.analysis_notifications !== undefined) setAnalysisNotifications(prefs.analysis_notifications);
+                if (prefs.compact_view !== undefined) setCompactView(prefs.compact_view);
+                if (prefs.confidence_threshold !== undefined) setConfidenceThreshold(String(prefs.confidence_threshold));
+            } catch (error) {
+                // Use defaults if API fails
+                console.log("Using default preferences");
+            } finally {
+                setIsLoadingPrefs(false);
+            }
+        };
+        loadPreferences();
+    }, []);
 
     // Handle profile save
     const handleSaveProfile = async () => {
         setIsSavingProfile(true);
         try {
-            // TODO: API call to update profile
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await userApi.updateProfile({ full_name: displayName });
             toast({
                 title: "Profile Updated",
                 description: "Your profile has been saved successfully.",
@@ -164,9 +191,9 @@ export default function Settings() {
             return;
         }
 
+        setIsChangingPassword(true);
         try {
-            // TODO: API call to change password
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await userApi.changePassword(currentPassword, newPassword);
             toast({
                 title: "Password Changed",
                 description: "Your password has been updated successfully.",
@@ -175,22 +202,45 @@ export default function Settings() {
             setCurrentPassword("");
             setNewPassword("");
             setConfirmPassword("");
-        } catch (error) {
+        } catch (error: any) {
             toast({
                 title: "Error",
-                description: "Failed to change password. Please try again.",
+                description: error.message || "Failed to change password. Please try again.",
                 variant: "destructive",
             });
+        } finally {
+            setIsChangingPassword(false);
         }
     };
 
     // Handle data export
     const handleExportData = async () => {
         try {
-            // TODO: API call to export data
+            // Get all analyses and create JSON download
+            const history = await analysisApi.getHistory(1, 1000);
+            const data = {
+                user: {
+                    email: user?.email,
+                    full_name: user?.full_name,
+                    member_since: user?.created_at,
+                },
+                analyses: history.items,
+                exported_at: new Date().toISOString(),
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `candle-light-export-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
             toast({
-                title: "Export Started",
-                description: "Your data export is being prepared. You'll receive a download link shortly.",
+                title: "Export Complete",
+                description: "Your data has been downloaded.",
             });
         } catch (error) {
             toast({
@@ -204,10 +254,10 @@ export default function Settings() {
     // Handle clear history
     const handleClearHistory = async () => {
         try {
-            // TODO: API call to clear history
+            const result = await userApi.clearHistory();
             toast({
                 title: "History Cleared",
-                description: "All your analysis history has been deleted.",
+                description: result.message || "All your analysis history has been deleted.",
             });
         } catch (error) {
             toast({
@@ -218,8 +268,27 @@ export default function Settings() {
         }
     };
 
+    // Handle delete account
+    const handleDeleteAccount = async () => {
+        try {
+            await userApi.deleteAccount();
+            toast({
+                title: "Account Deleted",
+                description: "Your account has been permanently deleted.",
+            });
+            await logout();
+            navigate("/login");
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to delete account. Please try again.",
+                variant: "destructive",
+            });
+        }
+    };
+
     // Handle theme change
-    const handleThemeChange = (newTheme: "dark" | "light" | "system") => {
+    const handleThemeChange = async (newTheme: "dark" | "light" | "system") => {
         setTheme(newTheme);
         // Apply theme
         const root = window.document.documentElement;
@@ -231,6 +300,25 @@ export default function Settings() {
             root.classList.add(newTheme);
         }
         localStorage.setItem("theme", newTheme);
+
+        // Save to API
+        try {
+            await userApi.updatePreferences({ theme: newTheme });
+        } catch (error) {
+            // Ignore API errors for theme - localStorage is primary
+        }
+    };
+
+    // Save preference to API
+    const savePreference = async (key: string, value: any) => {
+        setIsSavingPrefs(true);
+        try {
+            await userApi.updatePreferences({ [key]: value });
+        } catch (error) {
+            console.error("Failed to save preference:", key);
+        } finally {
+            setIsSavingPrefs(false);
+        }
     };
 
     return (
@@ -453,7 +541,7 @@ export default function Settings() {
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                    <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                                         Delete My Account
                                     </AlertDialogAction>
                                 </AlertDialogFooter>

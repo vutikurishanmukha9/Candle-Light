@@ -22,7 +22,7 @@ import { AnalysisLoadingSkeleton } from "@/components/LoadingSkeleton";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { analysisApi, AnalysisResult, ApiError } from "@/services/api";
+import { analysisApi, userApi, AnalysisResult, ApiError } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 
 // Stats interface
@@ -90,30 +90,22 @@ export default function Dashboard() {
       }
 
       try {
-        const response = await analysisApi.getHistory(1, 10);
-        const items = response.items;
-        setRecentAnalyses(items.slice(0, 3));
+        // Fetch stats from dedicated endpoint
+        const [statsResponse, historyResponse] = await Promise.all([
+          userApi.getStats(),
+          analysisApi.getHistory(1, 3),
+        ]);
 
-        // Calculate stats from history
-        const bullish = items.filter(i => i.market_bias === 'bullish').length;
-        const bearish = items.filter(i => i.market_bias === 'bearish').length;
-        const neutral = items.filter(i => i.market_bias === 'neutral').length;
-        const avgConf = items.length > 0
-          ? Math.round(items.reduce((acc, i) => acc + i.confidence, 0) / items.length)
-          : 0;
+        setRecentAnalyses(historyResponse.items);
 
-        // This week count
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-        const weekCount = items.filter(i => new Date(i.created_at) >= oneWeekAgo).length;
-
+        // Use API stats
         setStats({
-          totalAnalyses: response.total,
-          bullishCount: bullish,
-          bearishCount: bearish,
-          neutralCount: neutral,
-          avgConfidence: avgConf,
-          thisWeekCount: weekCount,
+          totalAnalyses: statsResponse.total_analyses,
+          bullishCount: statsResponse.bias_distribution?.bullish || 0,
+          bearishCount: statsResponse.bias_distribution?.bearish || 0,
+          neutralCount: statsResponse.bias_distribution?.neutral || 0,
+          avgConfidence: statsResponse.avg_confidence || 0,
+          thisWeekCount: statsResponse.this_week_count || 0,
         });
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);

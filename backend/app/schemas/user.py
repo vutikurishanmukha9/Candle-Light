@@ -57,6 +57,24 @@ class UserWithPreferences(UserResponse):
     model_config = {"from_attributes": True}
 
 
+class PasswordChange(BaseModel):
+    """Schema for changing password."""
+    current_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8, max_length=100)
+
+
+class PreferencesUpdate(BaseModel):
+    """Schema for updating user preferences."""
+    theme: Optional[str] = None
+    ai_provider: Optional[str] = None
+    notifications_enabled: Optional[bool] = None
+    email_notifications: Optional[bool] = None
+    analysis_notifications: Optional[bool] = None
+    auto_save: Optional[bool] = None
+    confidence_threshold: Optional[int] = None
+    compact_view: Optional[bool] = None
+
+
 class UserInDB(UserResponse):
     """Schema for user with private data (internal use)."""
     hashed_password: Optional[str] = None

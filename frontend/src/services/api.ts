@@ -324,7 +324,20 @@ export const analysisApi = {
 export interface UserStats {
   total_analyses: number;
   bias_distribution: Record<string, number>;
+  avg_confidence: number;
+  this_week_count: number;
   member_since: string;
+}
+
+export interface UserPreferences {
+  theme?: string;
+  ai_provider?: string;
+  notifications_enabled?: boolean;
+  email_notifications?: boolean;
+  analysis_notifications?: boolean;
+  auto_save?: boolean;
+  confidence_threshold?: number;
+  compact_view?: boolean;
 }
 
 export const userApi = {
@@ -346,10 +359,58 @@ export const userApi = {
   },
 
   /**
+   * Change password
+   */
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
+    return apiRequest<{ message: string }>('/users/password', {
+      method: 'PUT',
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_password: newPassword,
+      }),
+    });
+  },
+
+  /**
+   * Get user preferences
+   */
+  async getPreferences(): Promise<UserPreferences> {
+    return apiRequest<UserPreferences>('/users/preferences');
+  },
+
+  /**
+   * Update user preferences
+   */
+  async updatePreferences(prefs: UserPreferences): Promise<UserPreferences> {
+    return apiRequest<UserPreferences>('/users/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(prefs),
+    });
+  },
+
+  /**
    * Get user statistics
    */
   async getStats(): Promise<UserStats> {
     return apiRequest<UserStats>('/users/stats');
+  },
+
+  /**
+   * Delete user account
+   */
+  async deleteAccount(): Promise<{ message: string }> {
+    return apiRequest<{ message: string }>('/users/account', {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Clear analysis history
+   */
+  async clearHistory(): Promise<{ message: string }> {
+    return apiRequest<{ message: string }>('/users/history', {
+      method: 'DELETE',
+    });
   },
 };
 
