@@ -37,7 +37,12 @@ def cache_result(func):
             with open(image_path, "rb") as f:
                 image_bytes = f.read()
         
-        cache_key = hashlib.sha256(image_bytes).hexdigest()
+        image_hash = hashlib.sha256(image_bytes).hexdigest()
+        cache_prefix = getattr(self, "_cache_key_prefix", None)
+        if callable(cache_prefix):
+            cache_key = f"{cache_prefix()}:{image_hash}"
+        else:
+            cache_key = image_hash
         
         # Check cache
         if cache_key in _analysis_cache:
@@ -64,6 +69,20 @@ class AIService:
         self.max_retries = 3
         self.timeout = 30
         self._provider_health: Dict[str, bool] = {}
+
+    def _is_external_provider(self, provider: str) -> bool:
+        """Check if a provider uses external APIs."""
+        return provider in {"openai", "gemini", "anthropic", "openrouter"}
+
+    def _should_try_inhouse_first(self) -> bool:
+        """Decide whether to try in-house ML before external providers."""
+        return settings.ai_inhouse_first and self._is_external_provider(self.provider)
+
+    def _cache_key_prefix(self) -> str:
+        """Build cache namespace based on provider strategy."""
+        if self._should_try_inhouse_first():
+            return f"inhouse-first:{self.provider}"
+        return self.provider
     
     @cache_result
     async def analyze_chart(
@@ -96,20 +115,35 @@ class AIService:
         # Validate image
         self._validate_image(image_bytes)
         
-        # Try primary provider
-        try:
-            result = await self._analyze_with_provider(
-                self.provider, image_path, image_bytes
-            )
-            self._provider_health[self.provider] = True
-            
-        except Exception as primary_error:
-            self._provider_health[self.provider] = False
-            
-            # Try fallback providers
-            result = await self._try_fallback_providers(
-                image_path, image_bytes, primary_error
-            )
+        tried_providers: set[str] = set()
+        result: Optional[AnalysisResult] = None
+
+        # Prefer in-house ML before external APIs
+        if self._should_try_inhouse_first():
+            try:
+                result = await self._analyze_with_provider(
+                    "inhouse", image_path, image_bytes
+                )
+                self._provider_health["inhouse"] = True
+            except Exception:
+                self._provider_health["inhouse"] = False
+                tried_providers.add("inhouse")
+
+        # Try configured provider next
+        if result is None:
+            try:
+                result = await self._analyze_with_provider(
+                    self.provider, image_path, image_bytes
+                )
+                self._provider_health[self.provider] = True
+            except Exception as primary_error:
+                self._provider_health[self.provider] = False
+                tried_providers.add(self.provider)
+
+                # Try fallback providers
+                result = await self._try_fallback_providers(
+                    image_path, image_bytes, primary_error, tried_providers
+                )
         
         # Add metadata
         processing_time = int((time.time() - start_time) * 1000)
@@ -145,18 +179,19 @@ class AIService:
         self,
         image_path: str,
         image_bytes: bytes,
-        primary_error: Exception
+        primary_error: Exception,
+        tried_providers: Optional[set[str]] = None
     ) -> AnalysisResult:
         """Try fallback providers in order of preference."""
         fallback_order = ["openrouter", "inhouse", "openai", "gemini", "anthropic", "demo"]
-        
-        # Remove primary provider from fallbacks
-        if self.provider in fallback_order:
-            fallback_order.remove(self.provider)
+        tried = set(tried_providers or set())
+        tried.add(self.provider)
         
         last_error = primary_error
         
         for fallback in fallback_order:
+            if fallback in tried:
+                continue
             try:
                 result = await self._analyze_with_provider(
                     fallback, image_path, image_bytes
@@ -1248,6 +1283,8 @@ Return a properly formatted JSON object."""
         """Get status of all providers."""
         return {
             "current_provider": self.provider,
+            "inhouse_first": settings.ai_inhouse_first,
+            "effective_primary": "inhouse" if self._should_try_inhouse_first() else self.provider,
             "provider_health": self._provider_health,
             "max_retries": self.max_retries,
             "timeout_seconds": self.timeout

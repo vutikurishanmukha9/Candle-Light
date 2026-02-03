@@ -79,6 +79,8 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     openrouter_model: str = "anthropic/claude-3.5-sonnet"  # Default model on OpenRouter
     ai_provider: Literal["openai", "gemini", "anthropic", "openrouter", "inhouse", "demo"] = "demo"
+    # If True and an external provider is selected, try in-house ML first, then fall back.
+    ai_inhouse_first: bool = True
     
     @property
     def ai_enabled(self) -> bool:

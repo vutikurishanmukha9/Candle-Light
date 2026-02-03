@@ -35,6 +35,7 @@ async def lifespan(app: FastAPI):
     print(f"[START] Starting {settings.app_name} v{settings.app_version}")
     print(f"[DB] Database: {'SQLite' if settings.is_sqlite else 'PostgreSQL'}")
     print(f"[AI] AI Provider: {settings.ai_provider}")
+    print(f"[AI] In-house First: {settings.ai_inhouse_first}")
     
     # Initialize database
     await init_db()

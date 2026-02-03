@@ -50,4 +50,5 @@ async def ai_health():
         "status": "healthy",
         "provider": settings.ai_provider,
         "configured": settings.ai_enabled,
+        "inhouse_first": settings.ai_inhouse_first,
     }
